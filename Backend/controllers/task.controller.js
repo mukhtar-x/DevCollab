@@ -4,14 +4,14 @@ const createProjectTask = async (req, res, next) => {
     try {
         const projectId = req.params?.id;
         const userId = req.user?._id;
-        const {...projectData} = req.body;
+        const { ...projectData } = req.body;
 
         const response = await taskService.createTask(userId, projectId, projectData);
 
         return res.status(201).json({
-            success : true,
-            message : "Task created Successfully",
-            task : response
+            success: true,
+            message: "Task created Successfully",
+            task: response
         });
     } catch (error) {
         next(error);
@@ -21,14 +21,19 @@ const createProjectTask = async (req, res, next) => {
 
 const getProjectTasks = async (req, res, next) => {
     try {
+        const queryParams = req.query;
         const projectId = req.params?.id;
 
-        const response = await taskService.getTasks(projectId);
+        const response = await taskService.getTasks(projectId, queryParams);
 
         return res.status(200).json({
-            success : true,
-            message : "Tasks Fetched Successfully",
-            tasks : response
+            success: true,
+            message: "Tasks Fetched Successfully",
+            tasks: response.tasks,
+            pagination: {
+                nextCursor: response.nextCursor,
+                hasNextPage: response.hasNextPage
+            }
         })
     } catch (error) {
         next(error);
@@ -43,9 +48,9 @@ const getTask = async (req, res, next) => {
         const response = await taskService.getTask(projectId, taskId);
 
         return res.status(200).json({
-            success : true,
-            messgae : "Task details fetched successfully",
-            task : response
+            success: true,
+            messgae: "Task details fetched successfully",
+            task: response
         });
     } catch (error) {
         next(error);
@@ -56,14 +61,14 @@ const updateTask = async (req, res, next) => {
     try {
         const projectId = req.params?.id;
         const taskId = req.params?.taskId;
-        const {...data} = req.body;
+        const { ...data } = req.body;
 
         const response = await taskService.updateTask(projectId, taskId, data);
 
         return res.status(200).json({
-            success : true,
-            messgae : "Task updated successfully",
-            task : response
+            success: true,
+            messgae: "Task updated successfully",
+            task: response
         });
     } catch (error) {
         next(error);
@@ -80,9 +85,9 @@ const updateTaskStatus = async (req, res, next) => {
         const response = await taskService.updateTaskStatus(projectId, taskId, status);
 
         return res.status(200).json({
-            success : true,
-            messgae : "Task status updated successfully",
-            task : response
+            success: true,
+            messgae: "Task status updated successfully",
+            task: response
         });
     } catch (error) {
         next(error);
@@ -98,8 +103,8 @@ const deleteTask = async (req, res, next) => {
         const response = await taskService.deleteTask(projectId, taskId);
 
         return res.status(200).json({
-            success : true,
-            messgae : "Task deleted successfully",
+            success: true,
+            messgae: "Task deleted successfully",
         });
     } catch (error) {
         next(error);

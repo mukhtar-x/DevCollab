@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { FolderGit2, Users, Settings, Activity, Calendar, PackageCheck, UserIcon, Loader2 } from 'lucide-react';
+import { 
+  FolderGit2, Users, Settings, Activity, Calendar, PackageCheck, 
+  UserIcon, Loader2, ChevronDown, Search, Plus 
+} from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 
-// Components & Utilities
 import Breadcrumb from '../components/Breadcrumb';
 import Card from '../components/Card';
 import Tabs from '../components/Tabs';
@@ -17,7 +19,6 @@ import NotFound from './NotFound';
 import TaskRow from '../components/TaskRow';
 import { normalizeError } from '../utils/getErrorMessage';
 
-// Extracted Sub-Components
 import RenderInviteModal from '../components/modals/RenderInviteModal';
 import RenderTaskModal, { type TaskFormState } from '../components/modals/RenderTaskModal';
 import RenderTaskDetailModal from '../components/modals/RenderTaskDetailModal';
@@ -30,6 +31,7 @@ import { createTask, deleteTask, getProjectTasks, getTaskDetails, updateTask } f
 import { deleteComment, getTaskComments, postComment, updateComment } from '../redux/slices/commentSlice/comment.actions';
 import { getProjectActivityLogs } from '../redux/slices/activityLogSlice/activityLog.actions';
 import { setPage } from '../redux/slices/activityLogSlice/activityLog.slice';
+import CustomInput from '../components/CustomInput';
 
 const ProjectDetails = () => {
   const params = useParams();
@@ -41,14 +43,22 @@ const ProjectDetails = () => {
   const { project, loading: projectLoading } = useSelector((state: any) => state.project || {});
   const { members, loading: memberLoading } = useSelector((state: any) => state.projectMembers || {});
   const { projectInvitations, loading: invitationLoading } = useSelector((state: any) => state.invitations || {});
-  const { tasks, task: reduxTask, loading: taskLoading } = useSelector((state: any) => state.projectTasks || {});
+  const { tasks, task: reduxTask, loading: taskLoading, pagination: taskPagination } = useSelector((state: any) => state.projectTasks || {});
   const { comments, loading: commentLoading } = useSelector((state: any) => state.projectTaskComments || {});
   const { user } = useSelector((state: any) => state.user || {});
-  const { logs, loading:activityLoading, pagination} = useSelector((state:any) => state.projectActivityLogs || {});
+  const { logs, loading: activityLoading, pagination: activityPagination } = useSelector((state: any) => state.projectActivityLogs || {});
 
   // UI Navigation & Filtering State
   const [activeTab, setActiveTab] = useState('overview');
-  const [taskFilter, setTaskFilter] = useState('all');
+  const [taskFilters, setTaskFilters] = useState<{
+    status: string | null;
+    priority: string | null;
+    search: string | null;
+  }>({
+    status: null,
+    priority: null,
+    search: null,
+  });
 
   // Modal Open/Close Toggle States
   const [addInviteModalOpen, setAddInviteModalOpen] = useState(false);
@@ -57,10 +67,7 @@ const ProjectDetails = () => {
   const [isEditingTask, setIsEditingTask] = useState(false);
 
   // Form States
-  const [inviteForm, setInviteForm] = useState({
-    email: '',
-    role: 'Guest'
-  });
+  const [inviteForm, setInviteForm] = useState({ email: '', role: 'Guest' });
   const [form, setForm] = useState({ title: '', description: '', visibility: '' });
 
   const [taskForm, setTaskForm] = useState<TaskFormState>({
@@ -98,24 +105,33 @@ const ProjectDetails = () => {
     }
   }, [reduxTask, taskDetailModalOpen]);
 
+  const fetchTasksWithFilters = (isLoadMore = false) => {
+    dispatch(getProjectTasks({ id, filter: taskFilters, isLoadMore }));
+  };
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    fetchTasksWithFilters(false);
+  };
+
   // Fetch tab-specific data on change
   useEffect(() => {
     if (id) {
       if (activeTab === 'overview' || activeTab === 'settings') {
         dispatch(getProjectById({ id }));
       } else if (activeTab === 'tasks') {
-        dispatch(getProjectTasks({ id }));
+        fetchTasksWithFilters(false);
         if (!members || members.length === 0) {
           dispatch(getProjectMembers({ id }));
         }
-      } else if (activeTab == 'activity') {
-        dispatch(getProjectActivityLogs({projectId:id}));
+      } else if (activeTab === 'activity') {
+        dispatch(getProjectActivityLogs({ projectId: id }));
       } else {
         dispatch(getProjectMembers({ id }));
         dispatch(getProjectInvitations({ id }));
       }
     }
-  }, [dispatch, id, activeTab]);
+  }, [dispatch, id, activeTab, taskFilters?.priority, taskFilters?.status]);
 
   useEffect(() => {
     if (id && addTaskModalOpen && (!members || members.length === 0)) {
@@ -139,19 +155,23 @@ const ProjectDetails = () => {
     { id: 'overview', label: 'Overview', icon: <FolderGit2 className="h-4 w-4" /> },
     { id: 'members', label: 'Members', icon: <Users className="h-4 w-4" /> },
     { id: 'tasks', label: 'Tasks', icon: <PackageCheck className="h-4 w-4" /> },
-    { id: 'activity', label: 'Activity Logs', icon: <Activity className="h-4 w-4" /> }, // New Tab
+    { id: 'activity', label: 'Activity Logs', icon: <Activity className="h-4 w-4" /> },
     { id: 'settings', label: 'Settings', icon: <Settings className="h-4 w-4" /> },
   ];
 
-  const handleLoadMore = () => {
-  if (pagination?.hasNextPage && !activityLoading) {
-    const nextPage = (pagination.currentPage || pagination.page || 1) + 1;
-    // 1. Update page number in Redux state
-    dispatch(setPage(nextPage));
-    // 2. Fetch logs for the new page
-    dispatch(getProjectActivityLogs({projectId:id}));
-  }
-};
+  const handleLoadMoreActivity = () => {
+    if (activityPagination?.hasNextPage && !activityLoading) {
+      const nextPage = (activityPagination.currentPage || activityPagination.page || 1) + 1;
+      dispatch(setPage(nextPage));
+      dispatch(getProjectActivityLogs({ projectId: id }));
+    }
+  };
+
+  const handleLoadMoreTasks = () => {
+    if (taskPagination?.hasNextPage && !taskLoading) {
+      fetchTasksWithFilters(true);
+    }
+  };
 
   const breadcrumbs = [
     { label: 'Projects', to: '/projects' },
@@ -196,16 +216,15 @@ const ProjectDetails = () => {
   // Member Actions
   const handleSendInvite = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log(inviteForm);
     if (!inviteForm?.email || !inviteForm?.role) return;
     try {
       await dispatch(inviteMemberByMail({ email: inviteForm.email, role: inviteForm?.role, id })).unwrap();
       toast.success('Invitation Sent Successfully');
       setAddInviteModalOpen(false);
-      setInviteForm({ email: "", role: 'Guest' })
+      setInviteForm({ email: '', role: 'Guest' });
     } catch (error) {
-      setInviteForm({ email: "", role: 'Guest' })
-      let er = normalizeError(error)
+      setInviteForm({ email: '', role: 'Guest' });
+      let er = normalizeError(error);
       toast.error(er.error);
     }
   };
@@ -311,34 +330,27 @@ const ProjectDetails = () => {
     }
   };
 
-  const handleUpdateComment = async (
-    commentId: string,
-    editingCommentText: string
-  ) => {
+  const handleUpdateComment = async (commentId: string, editingCommentText: string) => {
     if (!editingCommentText?.trim()) return;
     try {
       await dispatch(updateComment({ projectId: id, commentId, commentBody: editingCommentText })).unwrap();
-      toast.success("Comment Updated Successfully");
+      toast.success('Comment Updated Successfully');
     } catch (error) {
       let er = normalizeError(error);
       toast.error(er.error);
     }
   };
 
-  const handleDeleteComment = async (
-    commentId: string,
-  ) => {
+  const handleDeleteComment = async (commentId: string) => {
     if (!commentId?.trim()) return;
     try {
       await dispatch(deleteComment({ projectId: id, commentId })).unwrap();
-      toast.success("Comment Deleted Successfully");
+      toast.success('Comment Deleted Successfully');
     } catch (error) {
       let er = normalizeError(error);
       toast.error(er.error);
     }
   };
-
-
 
   return (
     <div className="flex-1 min-h-screen bg-zinc-950 text-zinc-100 p-6 md:p-10 lg:p-12 overflow-y-auto animate-in fade-in duration-200">
@@ -495,54 +507,121 @@ const ProjectDetails = () => {
 
             {activeTab === 'tasks' && (
               <div className="w-full space-y-6">
-                <div className="flex flex-row items-center justify-between ">
-                  <div className="flex items-center gap-1.5 border-b border-zinc-900 pb-3 overflow-x-auto">
-                    {[
-                      { label: 'All Tasks', value: 'all' },
-                      { label: 'To Do', value: 'to-do' },
-                      { label: 'In Progress', value: 'in-progress' },
-                      { label: 'Completed', value: 'completed' },
-                    ].map((tab) => (
-                      <button
-                        key={tab.value}
-                        type="button"
-                        onClick={() => setTaskFilter(tab.value)}
-                        className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors whitespace-nowrap ${taskFilter === tab.value
-                          ? 'bg-zinc-800 text-zinc-100 border border-zinc-700'
-                          : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50 border border-transparent'
+                {/* Modern Filter Header Bar */}
+                <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 p-4 rounded-2xl bg-zinc-950/60 border border-zinc-900/80 shadow-inner">
+                  
+                  {/* Left Controls: Status Tabs, Search Bar, and Priority Dropdown */}
+                  <div className="flex flex-wrap items-center gap-3 flex-1">
+                    {/* Status Tabs */}
+                    <div className="flex items-center p-1 gap-1 rounded-xl bg-zinc-900/80 border border-zinc-800/60 overflow-x-auto shrink-0">
+                      {[
+                        { label: 'All', value: null },
+                        { label: 'To Do', value: 'to-do' },
+                        { label: 'In Progress', value: 'in-progress' },
+                        { label: 'Completed', value: 'completed' },
+                      ].map((tab) => (
+                        <button
+                          key={tab.label}
+                          type="button"
+                          onClick={() => setTaskFilters((prev) => ({ ...prev, status: tab.value }))}
+                          className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all whitespace-nowrap ${
+                            taskFilters?.status === tab.value
+                              ? 'bg-indigo-600 text-white shadow-sm'
+                              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
                           }`}
-                      >
-                        {tab.label}
-                      </button>
-                    ))}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Search Form with Search Icon */}
+                    <form onSubmit={handleSearchSubmit} className="flex items-center gap-2 flex-1 min-w-[220px]">
+                      <div className="relative flex-1">
+                        <CustomInput
+                          placeholder="Search tasks..."
+                          value={taskFilters?.search || ''}
+                          onChange={(e) => setTaskFilters((prev) => ({ ...prev, search: e.target.value }))}
+                          className="w-full pl-9 pr-3 py-1.5 bg-zinc-900/90 border border-zinc-800 focus:border-indigo-500 text-xs rounded-xl text-zinc-100 placeholder:text-zinc-500"
+                        />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500 pointer-events-none" />
+                      </div>
+                      <Button size="sm" type="submit" disabled={taskLoading} className="shrink-0 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700">
+                        Search
+                      </Button>
+                    </form>
+
+                    {/* Priority Dropdown */}
+                    <Dropdown
+                      items={[
+                        { label: 'All Priorities', onClick() { setTaskFilters((prev) => ({ ...prev, priority: null })); } },
+                        { label: 'Low', onClick() { setTaskFilters((prev) => ({ ...prev, priority: 'low' })); } },
+                        { label: 'Medium', onClick() { setTaskFilters((prev) => ({ ...prev, priority: 'medium' })); } },
+                        { label: 'High', onClick() { setTaskFilters((prev) => ({ ...prev, priority: 'high' })); } },
+                      ]}
+                      trigger={
+                        <button className="flex items-center justify-between gap-3 px-3 py-2 text-xs font-medium rounded-xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-300 transition-colors shrink-0">
+                          <span className="capitalize">{taskFilters?.priority || 'Priority'}</span>
+                          <ChevronDown className="h-3.5 w-3.5 text-zinc-500" />
+                        </button>
+                      }
+                    />
                   </div>
-                  <Button onClick={() => setAddTaskModalOpen(true)}>Create Task</Button>
+
+                  {/* Right Actions: Create Task */}
+                  <div className="flex items-center justify-end shrink-0">
+                    <Button onClick={() => setAddTaskModalOpen(true)} className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs rounded-xl px-4 py-2 shadow-sm">
+                      <Plus className="h-4 w-4" />
+                      <span>Create Task</span>
+                    </Button>
+                  </div>
                 </div>
 
+                {/* Task Stream List */}
                 <div className="space-y-3 w-full">
                   {taskLoading && (!tasks || tasks.length === 0) ? (
-                    <div className="flex items-center justify-center p-8 gap-2 text-xs text-zinc-400">
+                    <div className="flex items-center justify-center p-12 gap-2 text-xs text-zinc-400">
                       <Loader2 className="h-4 w-4 animate-spin text-indigo-400" />
                       <span>Loading tasks...</span>
                     </div>
-                  ) : (() => {
-                    const allTasks = tasks || [];
-                    const filtered = taskFilter === 'all' ? allTasks : allTasks.filter((t: any) => t.status === taskFilter);
-
-                    if (filtered.length === 0) {
-                      return (
-                        <div className="border border-dashed border-zinc-900 rounded-xl p-8 text-center text-xs text-zinc-500">
-                          No tasks found matching this filter criteria.
+                  ) : !tasks || tasks.length === 0 ? (
+                    <div className="border border-dashed border-zinc-900 rounded-xl p-12 text-center text-xs text-zinc-500">
+                      No tasks found matching this filter criteria.
+                    </div>
+                  ) : (
+                    <>
+                      {tasks.map((task: any) => (
+                        <div
+                          key={task._id}
+                          onClick={() => handleOpenTaskDetail(task)}
+                          className="cursor-pointer transition-transform duration-150 active:scale-[0.99]"
+                        >
+                          <TaskRow task={task} />
                         </div>
-                      );
-                    }
+                      ))}
 
-                    return filtered.map((task: any) => (
-                      <div key={task._id} onClick={() => handleOpenTaskDetail(task)} className="cursor-pointer transition-transform duration-150 active:scale-[0.99]">
-                        <TaskRow task={task} />
-                      </div>
-                    ));
-                  })()}
+                      {/* Task Load More UI Controls */}
+                      {taskPagination?.hasNextPage && (
+                        <div className="pt-6 pb-2 text-center">
+                          <Button
+                            size="sm"
+                            disabled={taskLoading}
+                            onClick={handleLoadMoreTasks}
+                            className="bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 hover:border-zinc-700 px-6 py-2 rounded-xl text-xs font-medium transition-all shadow-sm inline-flex items-center gap-2"
+                          >
+                            {taskLoading ? (
+                              <>
+                                <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-400" />
+                                <span>Fetching older tasks...</span>
+                              </>
+                            ) : (
+                              <span>Load More Tasks</span>
+                            )}
+                          </Button>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
             )}
@@ -599,15 +678,12 @@ const ProjectDetails = () => {
                     ))}
 
                     {/* Load More Pagination Flow */}
-                    {pagination?.hasNextPage && (
+                    {activityPagination?.hasNextPage && (
                       <div className="pt-4 text-center">
                         <Button
                           size="sm"
                           disabled={activityLoading}
-                          onClick={() => {
-                            // Dispatch logic to increment page or fetch next page batch
-                            dispatch(handleLoadMore);
-                          }}
+                          onClick={handleLoadMoreActivity}
                         >
                           {activityLoading ? 'Loading...' : 'Load Older Activity'}
                         </Button>

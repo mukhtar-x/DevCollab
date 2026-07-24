@@ -10,10 +10,15 @@ class taskDal {
         return await Task.create(taskData);
     };
 
-    async getTasksByProjectId(projectId) {
-        if (!projectId) return null;
+    async getTasksByQuery(query, limit) {
+        if (!query || Object.entries(query).length == 0) return null;
 
-        return await Task.find({ projectId }).lean();
+        // Query limit + 1 to check if another page exists
+        return await Task.find(query)
+            .sort({ _id: -1 })
+            .limit(limit + 1)
+            .lean();
+
     }
 
     async getTaskByKey(key) {

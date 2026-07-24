@@ -6,7 +6,11 @@ const initialState = {
     loading: false,
     error: null,
     tasks: [],
-    task: null
+    task: null,
+    pagination: {
+        hasNextPage: null,
+        nextCursor: null
+    }
 };
 
 
@@ -45,10 +49,16 @@ const taskSlice = createSlice({
                 state.loading = true,
                     state.success = false
             })
-            .addCase(getProjectTasks.fulfilled, (state, { payload }) => {
+            .addCase(getProjectTasks.fulfilled, (state, { payload, meta }) => {
                 state.loading = false,
-                    state.success = true,
-                    state.tasks = payload.tasks || []
+                state.success = true;
+                let newTasks = payload?.tasks || [];
+                if (meta.arg?.isLoadMore) {
+                    state.tasks = [...state.tasks, ...newTasks];
+                } else {
+                    state.tasks = newTasks;
+                } state.pagination.hasNextPage = payload?.pagination?.hasNextPage;
+                state.pagination.nextCursor = payload?.pagination?.nextCursor;
             })
             .addCase(getProjectTasks.rejected, (state, { payload }) => {
                 state.loading = false,

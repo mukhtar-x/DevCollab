@@ -16,4 +16,5 @@ router.route("/:id/task/:taskId")
 router.route("/:id/task/:taskId/status")
     .patch(AuthorizationMiddleware, requirePermission(Permission.UPDATE_TASK), taskController.updateTaskStatus);
 
+
 module.exports = router;

@@ -28,26 +28,52 @@ class taskService {
 
         if (!createdTask) throw new CustomError(400, "Error Creating Task");
 
-         eventBus.emit('activity:log', {
+        eventBus.emit('activity:log', {
             projectId,
-            actorId : reporterId,
-            action : 'TASK_CREATED',
-            targetType : 'TASK',
-            targetId : createdTask._id
+            actorId: reporterId,
+            action: 'TASK_CREATED',
+            targetType: 'TASK',
+            targetId: createdTask._id
         });
 
         return createdTask;
     };
 
 
-    async getTasks(projectId) {
+    async getTasks(projectId, queryParams) {
         if (!projectId) throw new CustomError(400, "ProjectId is required");
 
-        const tasks = await taskDal.getTasksByProjectId(projectId);
+        const { status, priority, search, limit = 10, cursor } = queryParams;
+        const parsedLimit = parseInt(limit, 10);
 
-        if (!tasks) return [];
+        let searchQueryObject = { projectId };
 
-        return tasks;
+        if (status) searchQueryObject['status'] = status;
+        if (priority) searchQueryObject['priority'] = priority;
+
+        if (search) {
+            searchQueryObject.$or = [
+                { title: { $regex: search, $options: 'i' } },
+                { description: { $regex: search, $options: 'i' } }
+            ]
+        };
+
+        if (cursor) searchQueryObject._id = { $lt: cursor };
+
+        const tasks = await taskDal.getTasksByQuery(searchQueryObject, parsedLimit);
+
+        if (!tasks || tasks?.length == 0) return { tasks: [], nextCursor: null, hasNextPage: false };
+
+        const hasNextPage = tasks.length > parsedLimit;
+        if (hasNextPage) tasks.pop();
+
+        const nextCursor = tasks?.length > 0 ? tasks[tasks?.length - 1]._id : null;
+
+        return {
+            tasks,
+            nextCursor,
+            hasNextPage
+        };
     };
 
     async getTask(projectId, taskId) {
@@ -55,40 +81,40 @@ class taskService {
 
         const task = await taskDal.getTaskByKey({ projectId, _id: taskId });
 
-        if (!task) throw new CustomError(404, "Task not found"); 
+        if (!task) throw new CustomError(404, "Task not found");
 
         return task;
     };
 
-   async updateTask(projectId, taskId, updatedData) {
-    if (!projectId || !taskId) throw new CustomError(400, "ProjectId or TaskId is required");
+    async updateTask(projectId, taskId, updatedData) {
+        if (!projectId || !taskId) throw new CustomError(400, "ProjectId or TaskId is required");
 
-    let updates = {};
-    let updateExist = false;
+        let updates = {};
+        let updateExist = false;
 
-    Object.entries(updatedData).forEach(([key, value]) => {
-        if (value !== undefined && (typeof value !== 'string' || value.trim().length !== 0)) {
-            updates[key] = value;
-            updateExist = true;
-        }
-    });
-
-    if (!updateExist) throw new CustomError(400, "No valid fields provided for update");
-
-    const updatedTask = await taskDal.updateTask({ projectId, _id: taskId }, updates);
-    if (!updatedTask) throw new CustomError(404, "Task not found");
-
-      eventBus.emit('activity:log', {
-            projectId,
-            actorId : updatedTask?.reporterId,
-            action : 'TASK_UPDATED',
-            targetType : 'TASK',
-            targetId : updatedTask._id
+        Object.entries(updatedData).forEach(([key, value]) => {
+            if (value !== undefined && (typeof value !== 'string' || value.trim().length !== 0)) {
+                updates[key] = value;
+                updateExist = true;
+            }
         });
-    
 
-    return updatedTask;
-}
+        if (!updateExist) throw new CustomError(400, "No valid fields provided for update");
+
+        const updatedTask = await taskDal.updateTask({ projectId, _id: taskId }, updates);
+        if (!updatedTask) throw new CustomError(404, "Task not found");
+
+        eventBus.emit('activity:log', {
+            projectId,
+            actorId: updatedTask?.reporterId,
+            action: 'TASK_UPDATED',
+            targetType: 'TASK',
+            targetId: updatedTask._id
+        });
+
+
+        return updatedTask;
+    }
 
 
     async deleteTask(projectId, taskId) {
