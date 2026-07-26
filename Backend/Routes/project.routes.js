@@ -26,4 +26,7 @@ Router.route("/:id/members")
 Router.route("/:id/activity-logs")
 .get(authorizationMiddleware, requirePermission(Permission.MEMEBR), projectController.getActivityLogs);    
 
+Router.route("/:id/project-stats")
+.get(authorizationMiddleware, requirePermission(Permission.MEMEBR), projectController.getProjectStats);
+
 module.exports = Router;

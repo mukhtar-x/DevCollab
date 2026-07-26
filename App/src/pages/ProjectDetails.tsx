@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { 
-  FolderGit2, Users, Settings, Activity, Calendar, PackageCheck, 
-  UserIcon, Loader2, ChevronDown, Search, Plus 
+import {
+  FolderGit2, Users, Settings, Activity, Calendar, PackageCheck,
+  UserIcon, Loader2, ChevronDown, Search, Plus, AlertTriangle, CheckCircle2, ListTodo, Clock
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -24,7 +24,7 @@ import RenderTaskModal, { type TaskFormState } from '../components/modals/Render
 import RenderTaskDetailModal from '../components/modals/RenderTaskDetailModal';
 
 // Redux Actions
-import { deleteProject, getProjectById, updateProject } from '../redux/slices/projectSlide/project.actions';
+import { deleteProject, getProjectById, getProjectStats, updateProject } from '../redux/slices/projectSlide/project.actions';
 import { getProjectMembers } from '../redux/slices/memberSlice/member.actions';
 import { getProjectInvitations, inviteMemberByMail } from '../redux/slices/invitationSlice/invitation.actions';
 import { createTask, deleteTask, getProjectTasks, getTaskDetails, updateTask } from '../redux/slices/taskSlice/task.actions';
@@ -40,7 +40,7 @@ const ProjectDetails = () => {
   const dispatch = useDispatch<any>();
 
   // Redux Store Selectors
-  const { project, loading: projectLoading } = useSelector((state: any) => state.project || {});
+  const { project, loading: projectLoading, projectStats } = useSelector((state: any) => state.project || {});
   const { members, loading: memberLoading } = useSelector((state: any) => state.projectMembers || {});
   const { projectInvitations, loading: invitationLoading } = useSelector((state: any) => state.invitations || {});
   const { tasks, task: reduxTask, loading: taskLoading, pagination: taskPagination } = useSelector((state: any) => state.projectTasks || {});
@@ -117,7 +117,15 @@ const ProjectDetails = () => {
   // Fetch tab-specific data on change
   useEffect(() => {
     if (id) {
-      if (activeTab === 'overview' || activeTab === 'settings') {
+      if (activeTab === 'overview') {
+        dispatch(getProjectStats({ id }));
+        dispatch(getProjectById({ id }));
+
+        // Ensure activities and tasks are triggered for overview stats calculation
+        // dispatch(getProjectActivityLogs({ projectId: id }));
+        fetchTasksWithFilters(false);
+      }
+      else if (activeTab === 'settings') {
         dispatch(getProjectById({ id }));
       } else if (activeTab === 'tasks') {
         fetchTasksWithFilters(false);
@@ -177,6 +185,15 @@ const ProjectDetails = () => {
     { label: 'Projects', to: '/projects' },
     { label: project?.title || 'Loading Project...' },
   ];
+
+  // Map Stats dynamically from available Project/Task state
+  const totalTasks = projectStats?.totalTasks ?? (tasks?.length || 0);
+  const overdueTasks = projectStats?.overdueTasks ?? (tasks?.filter((t: any) => new Date(t.dueDate) < new Date() && t.status !== 'completed')?.length || 0);
+  const completedTasks = projectStats?.tasksByStatus?.COMPLETED ?? projectStats?.tasksByStatus?.completed ?? (tasks?.filter((t: any) => t.status === 'completed')?.length || 0);
+  const inProgressTasks = projectStats?.tasksByStatus?.IN_PROGRESS ?? projectStats?.tasksByStatus?.['in-progress'] ?? (tasks?.filter((t: any) => t.status === 'in-progress')?.length || 0);
+  const todoTasks = projectStats?.tasksByStatus?.TODO ?? projectStats?.tasksByStatus?.['to-do'] ?? (tasks?.filter((t: any) => t.status === 'to-do')?.length || 0);
+  const activityCount = projectStats?.activityCount ?? (activityPagination?.totalItems || logs?.length || 0);
+  const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
   if (projectLoading && !project) {
     return (
@@ -417,43 +434,141 @@ const ProjectDetails = () => {
 
           <div className="p-6 md:p-8">
             {activeTab === 'overview' && (
-              <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                <div className="lg:col-span-3 space-y-6">
-                  <div className="space-y-2">
-                    <h2 className="text-xl font-bold text-zinc-100">{project?.title}</h2>
+              <div className="space-y-8">
+                {/* Enlarged Prominent Metric Header Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                  <div className="bg-zinc-950/60 border border-zinc-900 rounded-2xl p-5 space-y-3 shadow-md relative overflow-hidden group hover:border-zinc-800 transition-all">
+                    <div className="flex items-center justify-between text-zinc-400">
+                      <span className="text-xs font-semibold uppercase tracking-wider">Total Tasks</span>
+                      <PackageCheck className="h-5 w-5 text-indigo-400" />
+                    </div>
+                    <div className="flex items-baseline justify-between">
+                      <p className="text-3xl font-black text-zinc-100">{totalTasks}</p>
+                      <span className="text-xs text-zinc-500 font-medium">Recorded</span>
+                    </div>
                   </div>
-                  <div className="space-y-3 border-t border-zinc-900/80 pt-5">
-                    <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Project Description</h3>
-                    <p className="text-sm text-zinc-300 leading-relaxed max-w-full">{project?.description}</p>
+
+                  <div className="bg-zinc-950/60 border border-zinc-900 rounded-2xl p-5 space-y-3 shadow-md relative overflow-hidden group hover:border-zinc-800 transition-all">
+                    <div className="flex items-center justify-between text-zinc-400">
+                      <span className="text-xs font-semibold uppercase tracking-wider">Completion Rate</span>
+                      <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+                    </div>
+                    <div className="flex items-baseline justify-between">
+                      <p className="text-3xl font-black text-zinc-100">{completionRate}%</p>
+                      <span className="text-xs text-emerald-400 font-medium">{completedTasks} completed</span>
+                    </div>
+                    {/* Progress Bar Visual */}
+                    <div className="w-full bg-zinc-900 h-1.5 rounded-full overflow-hidden mt-2">
+                      <div className="bg-emerald-500 h-full rounded-full transition-all duration-500" style={{ width: `${completionRate}%` }} />
+                    </div>
+                  </div>
+
+                  <div className="bg-zinc-950/60 border border-zinc-900 rounded-2xl p-5 space-y-3 shadow-md relative overflow-hidden group hover:border-zinc-800 transition-all">
+                    <div className="flex items-center justify-between text-zinc-400">
+                      <span className="text-xs font-semibold uppercase tracking-wider">Overdue Tasks</span>
+                      <AlertTriangle className={`h-5 w-5 ${overdueTasks > 0 ? 'text-rose-400 animate-pulse' : 'text-zinc-500'}`} />
+                    </div>
+                    <div className="flex items-baseline justify-between">
+                      <p className="text-3xl font-black text-zinc-100">{overdueTasks}</p>
+                      <span className={`text-xs font-medium ${overdueTasks > 0 ? 'text-rose-400' : 'text-zinc-500'}`}>
+                        {overdueTasks > 0 ? 'Requires attention' : 'All clear'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="bg-zinc-950/60 border border-zinc-900 rounded-2xl p-5 space-y-3 shadow-md relative overflow-hidden group hover:border-zinc-800 transition-all">
+                    <div className="flex items-center justify-between text-zinc-400">
+                      <span className="text-xs font-semibold uppercase tracking-wider">Activity Events</span>
+                      <Activity className="h-5 w-5 text-sky-400" />
+                    </div>
+                    <div className="flex items-baseline justify-between">
+                      <p className="text-3xl font-black text-zinc-100">{activityCount}</p>
+                      <span className="text-xs text-zinc-500 font-medium">Logged</span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="space-y-5 bg-zinc-950/40 p-6 border border-zinc-900 rounded-xl lg:col-span-1 w-full h-fit">
-                  <h4 className="text-xs font-bold text-zinc-300 uppercase tracking-wider">Workspace Status</h4>
-                  <div className="space-y-4 text-xs text-zinc-400">
-                    <div className="flex items-center justify-between border-b border-zinc-900 pb-3">
-                      <span className="flex items-center gap-1.5">
-                        <Activity className="h-4 w-4 text-zinc-500" /> Project Status
-                      </span>
-                      <Badge variant={project?.status === 'Completed' ? 'success' : 'primary'} size="sm">
-                        {project?.status || 'Active'}
-                      </Badge>
+                {/* Main Content Layout & Enlarged Status Breakdown Block */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  {/* Left Column: Project Meta Details */}
+                  <div className="lg:col-span-2 space-y-6">
+                    {/* <div className="bg-zinc-950/40 border border-zinc-900 rounded-2xl p-6 space-y-4">
+                      <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Project Description</h3>
+                      <p className="text-sm text-zinc-300 leading-relaxed max-w-full">{project?.description || 'No description provided.'}</p>
+                    </div> */}
+
+                    {/* Task Distribution Status Map */}
+                    <div className="bg-zinc-950/40 border border-zinc-900 rounded-2xl p-6 space-y-5">
+                      <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-2">
+                        <ListTodo className="h-4 w-4 text-indigo-400" /> Task Status Distribution
+                      </h3>
+
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-xs font-medium">
+                            <span className="text-zinc-300">To Do</span>
+                            <span className="text-zinc-400">{todoTasks} tasks</span>
+                          </div>
+                          <div className="w-full bg-zinc-900 h-2 rounded-full overflow-hidden">
+                            <div className="bg-zinc-600 h-full rounded-full transition-all duration-300" style={{ width: `${totalTasks > 0 ? (todoTasks / totalTasks) * 100 : 0}%` }} />
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-xs font-medium">
+                            <span className="text-amber-400">In Progress</span>
+                            <span className="text-zinc-400">{inProgressTasks} tasks</span>
+                          </div>
+                          <div className="w-full bg-zinc-900 h-2 rounded-full overflow-hidden">
+                            <div className="bg-amber-500 h-full rounded-full transition-all duration-300" style={{ width: `${totalTasks > 0 ? (inProgressTasks / totalTasks) * 100 : 0}%` }} />
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-xs font-medium">
+                            <span className="text-emerald-400">Completed</span>
+                            <span className="text-zinc-400">{completedTasks} tasks</span>
+                          </div>
+                          <div className="w-full bg-zinc-900 h-2 rounded-full overflow-hidden">
+                            <div className="bg-emerald-500 h-full rounded-full transition-all duration-300" style={{ width: `${totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0}%` }} />
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between border-b border-zinc-900 pb-3">
-                      <span className="flex items-center gap-1.5">
-                        <Calendar className="h-4 w-4 text-zinc-500" /> Created Date
-                      </span>
-                      <span className="text-zinc-200 font-medium">
-                        {project?.createdAt ? new Date(project.createdAt).toLocaleDateString() : 'N/A'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between border-b border-zinc-900 pb-3">
-                      <span>Project Type:</span>
-                      <span className="text-zinc-200 font-semibold capitalize">{project?.visibility || 'N/A'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Members:</span>
-                      <span className="text-zinc-200 font-semibold">{project?.memberCount || 'N/A'}</span>
+                  </div>
+
+                  {/* Right Column: Workspace Details */}
+                  <div className="space-y-5 bg-zinc-950/40 p-6 border border-zinc-900 rounded-2xl lg:col-span-1 w-full h-fit">
+                    <h4 className="text-xs font-bold text-zinc-300 uppercase tracking-wider">Workspace Metadata</h4>
+                    <div className="space-y-4 text-xs text-zinc-400">
+                      <div className="flex items-center justify-between border-b border-zinc-900 pb-3">
+                        <span className="flex items-center gap-1.5">
+                          <Activity className="h-4 w-4 text-zinc-500" /> Project Status
+                        </span>
+                        <Badge variant={project?.status === 'Completed' ? 'success' : 'primary'} size="sm">
+                          {project?.status || 'Active'}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between border-b border-zinc-900 pb-3">
+                        <span className="flex items-center gap-1.5">
+                          <Calendar className="h-4 w-4 text-zinc-500" /> Created Date
+                        </span>
+                        <span className="text-zinc-200 font-medium">
+                          {project?.createdAt ? new Date(project.createdAt).toLocaleDateString() : 'N/A'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between border-b border-zinc-900 pb-3">
+                        <span className="flex items-center gap-1.5">
+                          <Clock className="h-4 w-4 text-zinc-500" /> Project Type
+                        </span>
+                        <span className="text-zinc-200 font-semibold capitalize">{project?.visibility || 'N/A'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="flex items-center gap-1.5">
+                          <Users className="h-4 w-4 text-zinc-500" /> Total Members
+                        </span>
+                        <span className="text-zinc-200 font-semibold">{project?.memberCount || 'N/A'}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -509,7 +624,7 @@ const ProjectDetails = () => {
               <div className="w-full space-y-6">
                 {/* Modern Filter Header Bar */}
                 <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 p-4 rounded-2xl bg-zinc-950/60 border border-zinc-900/80 shadow-inner">
-                  
+
                   {/* Left Controls: Status Tabs, Search Bar, and Priority Dropdown */}
                   <div className="flex flex-wrap items-center gap-3 flex-1">
                     {/* Status Tabs */}
@@ -524,11 +639,10 @@ const ProjectDetails = () => {
                           key={tab.label}
                           type="button"
                           onClick={() => setTaskFilters((prev) => ({ ...prev, status: tab.value }))}
-                          className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all whitespace-nowrap ${
-                            taskFilters?.status === tab.value
+                          className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all whitespace-nowrap ${taskFilters?.status === tab.value
                               ? 'bg-indigo-600 text-white shadow-sm'
                               : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
-                          }`}
+                            }`}
                         >
                           {tab.label}
                         </button>

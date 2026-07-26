@@ -1,5 +1,6 @@
 const invitationDal = require("../DAL/invitation.dal");
 const projectMemberDal = require("../DAL/projectMember.dal");
+const projectDal = require("../DAL/project.dal");
 const userDal = require("../DAL/user.dal");
 const CustomError = require("../utils/CustomError");
 const reusable = require("../utils/reusable");
@@ -39,54 +40,58 @@ class invitationService {
 
         if (!invitation) throw new CustomError(400, "Error Creating Invitation");
 
-        await reusable.sendMail({to:invitedEmail, subject:"Invitation to Project on DevCollab", body:`You have been invited as ${role} in the project ${projectId}. You can join by clicking the link within 7 days, Link:http://localhost:5173/invitations`});
+        await reusable.sendMail({ to: invitedEmail, subject: "Invitation to Project on DevCollab", body: `You have been invited as ${role} in the project ${projectId}. You can join by clicking the link within 7 days, Link:http://localhost:5173/invitations` });
 
         return invitation;
     };
 
 
-    async acceptInvitation (token, user) {
-        const invitation = await invitationDal.getInvitation({token, invitedEmail:user.email});
+    async acceptInvitation(token, user) {
+        const invitation = await invitationDal.getInvitation({ token, invitedEmail: user.email });
 
         if (!invitation) throw new CustomError(404, "Invitation expired or doesn't exist");
 
         if (invitation.status !== 'pending') throw new CustomError(404, `Invitation Already ${invitation.status}`);
 
-        await invitationDal.updateInvitationStatus({token, invitedEmail:user.email}, 'accepted');
+        await invitationDal.updateInvitationStatus({ token, invitedEmail: user.email }, 'accepted');
 
         await projectMemberDal.createProjectMember({
-            projectId : invitation.projectId,
-            userId : user._id,
-            email : user.email,
-            role : invitation.role || 'Guest'
+            projectId: invitation.projectId,
+            userId: user._id,
+            email: user.email,
+            role: invitation.role || 'Guest'
         });
 
+        let project = await projectDal.getProjectByKey('_id', invitation.projectId);
+
+        await projectDal.updateProject(project._id, { memberCount: project.memberCount + 1 });
+
         eventBus.emit('activity:log', {
-            projectId:invitation.projectId,
-            actorId : user?._id,
-            action : 'INVITION_ACCEPTED',
-            targetType : 'INVITATION',
-            targetId : invitation._id
+            projectId: invitation.projectId,
+            actorId: user?._id,
+            action: 'INVITION_ACCEPTED',
+            targetType: 'INVITATION',
+            targetId: invitation._id
         });
 
         return true;
     };
 
-    async rejectInvitation (token, user) {
-        const invitation = await invitationDal.getInvitation({token, invitedEmail:user.email});
+    async rejectInvitation(token, user) {
+        const invitation = await invitationDal.getInvitation({ token, invitedEmail: user.email });
 
         if (!invitation) throw new CustomError(404, "Invitation expired or doesn't exist");
 
         if (invitation.status !== 'pending') throw new CustomError(404, `Invitation Already ${invitation.status}`);
 
-        await invitationDal.updateInvitationStatus({token, invitedEmail:user.email}, 'rejected');
+        await invitationDal.updateInvitationStatus({ token, invitedEmail: user.email }, 'rejected');
 
         return true;
     };
 
 
-    async getMyInvitations (user) {
-        const invitations = await invitationDal.getInvitations('invitedEmail',user.email);
+    async getMyInvitations(user) {
+        const invitations = await invitationDal.getInvitations('invitedEmail', user.email);
 
         if (invitations?.length == 0) return [];
 

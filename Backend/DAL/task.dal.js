@@ -1,3 +1,4 @@
+const { default: mongoose } = require("mongoose");
 const Task = require("../Models/task.model.js");
 
 class taskDal {
@@ -45,7 +46,60 @@ class taskDal {
         return await Task.findOneAndDelete(key);
     };
 
+  async getProjectTaskStats(projectId) {
+    const objectId = new mongoose.Types.ObjectId(projectId);
+    const now = new Date();
 
+    const [result] = await Task.aggregate([
+      { $match: { projectId: objectId } },
+      {
+        $facet: {
+          // Tasks grouped by status
+          statusCounts: [
+            { $group: { _id: '$status', count: { $sum: 1 } } }
+          ],
+          // Overdue tasks count (dueDate < now AND status != COMPLETED)
+          overdueCount: [
+            {
+              $match: {
+                dueDate: { $lt: now },
+                status: { $ne: 'completed' }
+              }
+            },
+            { $count: 'count' }
+          ],
+          // Total tasks count
+          totalCount: [
+            { $count: 'count' }
+          ]
+        }
+      }
+    ]);
+
+    // Format statusCounts array into a key-value object map
+    const statusMap = {
+      todo: 0,
+      inprogress: 0,
+      completed: 0
+    };
+
+    if (result && result.statusCounts) {
+      result.statusCounts.forEach((item) => {
+        if (item._id) {
+          statusMap[item._id] = item.count;
+        }
+      });
+    }
+
+    const totalTasks = result?.totalCount[0]?.count || 0;
+    const overdueTasks = result?.overdueCount[0]?.count || 0;
+
+    return {
+      totalTasks,
+      overdueTasks,
+      statusMap
+    };
+  }
 };
 
 

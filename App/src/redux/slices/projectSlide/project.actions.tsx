@@ -69,3 +69,16 @@ export const getProjectById = createAsyncThunk(
         }
     }
 );
+
+export const getProjectStats = createAsyncThunk(
+    'project/stats/get', 
+    async ({id}, {rejectWithValue}) => {
+        try {
+            const res = await axiosInstance.get(`/project/${id}/project-stats`);
+
+            return res.data;
+        } catch (error) {
+            return rejectWithValue(normalizeError(error));
+        }
+    }
+);

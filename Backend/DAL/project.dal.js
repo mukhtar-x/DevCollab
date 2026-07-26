@@ -32,7 +32,9 @@ class projectDal {
         if (!projectId, !updatedData) return null;
 
         return await Project.findOneAndUpdate({_id : projectId}, {"$set" : updatedData}, {new : true}).lean();
-    }
+    };
+
+
 };
 
 module.exports = new projectDal(); 

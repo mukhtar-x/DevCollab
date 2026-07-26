@@ -177,6 +177,22 @@ const getActivityLogs = async (req, res, next) => {
     }
 };
 
+const getProjectStats = async (req, res, next) => {
+    try {
+        const projectId = req.params?.id;
+        
+        const response = await projectService.getProjectStats(projectId);
+
+        return res.status(200).json({
+            success : true,
+            message : "Stats Fetched Successfully",
+            stats : response
+        })
+    } catch (error) {
+        next(error);
+    }
+};
+
 
 
 
@@ -190,5 +206,6 @@ module.exports = {
     getProjectMembers,
     removeProjectInvitation,
     removeProjectMember,
-    getActivityLogs
+    getActivityLogs,
+    getProjectStats
 };

@@ -4,6 +4,7 @@ const projectMemberDal = require("../DAL/projectMember.dal");
 const CustomError = require("../utils/CustomError");
 const eventBus = require("../events/log.event");
 const activityLogDal = require("../DAL/activitylog.dal");
+const taskDal = require("../DAL/task.dal");
 
 class projectService {
     constructor() { };
@@ -133,9 +134,32 @@ class projectService {
                 hasNextPage: page < totalPages,
                 hasPrevPage: page > 1,
             },
-
-        }}
+        }
     };
+
+    async getProjectStats(projectId) {
+        if (!projectId) throw new CustomError(400, "Project ID is required");
+
+        // Execute the task aggregation pipeline and activity count in parallel
+        const [taskStats, activityCount] = await Promise.all([
+            taskDal.getProjectTaskStats(projectId),
+            activityLogDal.countLogsByProjectId(projectId)
+        ]);
+
+        const completedTasks = taskStats.statusMap.COMPLETED || 0;
+        const completionRate = taskStats.totalTasks > 0
+            ? Math.round((completedTasks / taskStats.totalTasks) * 100)
+            : 0;
+
+        return {
+            totalTasks: taskStats.totalTasks,
+            overdueTasks: taskStats.overdueTasks,
+            activityCount: activityCount,
+            completionRate: completionRate,
+            tasksByStatus: taskStats.statusMap
+        };
+    };
+};
 
 
 
