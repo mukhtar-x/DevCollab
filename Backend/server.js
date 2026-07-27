@@ -4,17 +4,20 @@ const connectDB = require("./config/db.js");
 const cors = require("cors");
 require("dotenv").config();
 const morgan = require("morgan");
+const errorMiddleware = require("./middlewares/error.middleware.js");
+const cookieParser = require("cookie-parser");
+const registerActivityLogListener = require("./listeners/activityLog.listener.js");
+
+//Routes
 const authRoutes = require("./Routes/auth.routes.js");
 const userRoutes = require("./Routes/user.routes.js");
 const projectRoutes = require("./Routes/project.routes.js");
 const invitationRoutes = require("./Routes/invitation.routes.js");
 const taskRoutes = require("./Routes/task.routes.js");
 const commentRoutes = require("./Routes/comment.routes.js");
-const errorMiddleware = require("./middlewares/error.middleware.js");
-const cookieParser = require("cookie-parser");
-const registerActivityLogListener = require("./listeners/activityLog.listener.js");
 
 
+//CORS Options
 const CORSOPTIONS = {
     origin: "http://localhost:5173",
     credentials: true,
@@ -28,6 +31,7 @@ const app = express();
 //listener activity loggs
 registerActivityLogListener();
 
+//middleares
 app.use(express.json())
 app.use(express({ urlencoded: true }));
 app.use(cors(CORSOPTIONS));

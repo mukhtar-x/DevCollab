@@ -2,7 +2,7 @@ const commentService = require("../services/comment.service.js");
 
 const createComment = async (req, res, next) => {
     try {
-        const projectId = req.params?.id;
+        const projectId = req.params?.projectId;
         const taskId = req.params?.taskId;
         const userId = req?.user?._id;
         const commentBody = req.body?.commentBody;
@@ -21,7 +21,7 @@ const createComment = async (req, res, next) => {
 
 const getTaskComments = async (req, res, next) => {
     try {
-        const projectId = req.params?.id;
+        const projectId = req.params?.projectId;
         const taskId = req.params?.taskId;
 
         const response = await commentService.getTaskComments(projectId, taskId);

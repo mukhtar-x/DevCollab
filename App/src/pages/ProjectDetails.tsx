@@ -32,6 +32,7 @@ import { deleteComment, getTaskComments, postComment, updateComment } from '../r
 import { getProjectActivityLogs } from '../redux/slices/activityLogSlice/activityLog.actions';
 import { setPage } from '../redux/slices/activityLogSlice/activityLog.slice';
 import CustomInput from '../components/CustomInput';
+import { usePermissions } from '../hooks/usePemissions';
 
 const ProjectDetails = () => {
   const params = useParams();
@@ -47,6 +48,9 @@ const ProjectDetails = () => {
   const { comments, loading: commentLoading } = useSelector((state: any) => state.projectTaskComments || {});
   const { user } = useSelector((state: any) => state.user || {});
   const { logs, loading: activityLoading, pagination: activityPagination } = useSelector((state: any) => state.projectActivityLogs || {});
+
+  // Custom Permits Hook for UI
+  const { hasPermit } = usePermissions(project?.userPermissions);
 
   // UI Navigation & Filtering State
   const [activeTab, setActiveTab] = useState('overview');
@@ -120,9 +124,6 @@ const ProjectDetails = () => {
       if (activeTab === 'overview') {
         dispatch(getProjectStats({ id }));
         dispatch(getProjectById({ id }));
-
-        // Ensure activities and tasks are triggered for overview stats calculation
-        // dispatch(getProjectActivityLogs({ projectId: id }));
         fetchTasksWithFilters(false);
       }
       else if (activeTab === 'settings') {
@@ -133,10 +134,12 @@ const ProjectDetails = () => {
           dispatch(getProjectMembers({ id }));
         }
       } else if (activeTab === 'activity') {
-        dispatch(getProjectActivityLogs({ projectId: id }));
+        dispatch(getProjectActivityLogs({ id }));
       } else {
         dispatch(getProjectMembers({ id }));
-        dispatch(getProjectInvitations({ id }));
+        if (hasPermit('member:manage') || hasPermit('member:invite')) {
+          dispatch(getProjectInvitations({ id }));
+        }
       }
     }
   }, [dispatch, id, activeTab, taskFilters?.priority, taskFilters?.status]);
@@ -159,19 +162,22 @@ const ProjectDetails = () => {
 
   if (!projectLoading && (!project || Object.entries(project).length === 0)) return <NotFound />;
 
+  // Filter settings tab if user lacks any project modification rights
   const tabs = [
     { id: 'overview', label: 'Overview', icon: <FolderGit2 className="h-4 w-4" /> },
     { id: 'members', label: 'Members', icon: <Users className="h-4 w-4" /> },
     { id: 'tasks', label: 'Tasks', icon: <PackageCheck className="h-4 w-4" /> },
     { id: 'activity', label: 'Activity Logs', icon: <Activity className="h-4 w-4" /> },
-    { id: 'settings', label: 'Settings', icon: <Settings className="h-4 w-4" /> },
+    ...(hasPermit('project:update') || hasPermit('project:delete')
+      ? [{ id: 'settings', label: 'Settings', icon: <Settings className="h-4 w-4" /> }]
+      : []),
   ];
 
   const handleLoadMoreActivity = () => {
     if (activityPagination?.hasNextPage && !activityLoading) {
       const nextPage = (activityPagination.currentPage || activityPagination.page || 1) + 1;
       dispatch(setPage(nextPage));
-      dispatch(getProjectActivityLogs({ projectId: id }));
+      dispatch(getProjectActivityLogs({ id }));
     }
   };
 
@@ -207,9 +213,10 @@ const ProjectDetails = () => {
   // Project Actions
   const handleUpdateSettings = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!hasPermit('project:update')) return;
     if (id) {
       try {
-        await dispatch(updateProject({ data: { id, ...form } })).unwrap();
+        await dispatch(updateProject({ id, data: form })).unwrap();
         toast.success('Project details updated successfully.');
       } catch (error) {
         toast.error(normalizeError(error).error);
@@ -219,6 +226,7 @@ const ProjectDetails = () => {
 
   const handleDeleteProject = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!hasPermit('project:delete')) return;
     if (id) {
       try {
         await dispatch(deleteProject({ id })).unwrap();
@@ -233,6 +241,7 @@ const ProjectDetails = () => {
   // Member Actions
   const handleSendInvite = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!hasPermit('member:manage') && !hasPermit('member:invite')) return;
     if (!inviteForm?.email || !inviteForm?.role) return;
     try {
       await dispatch(inviteMemberByMail({ email: inviteForm.email, role: inviteForm?.role, id })).unwrap();
@@ -265,6 +274,7 @@ const ProjectDetails = () => {
   // Task Actions
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!hasPermit('task:create')) return;
     if (!taskForm.title.trim() || !taskForm.description.trim()) {
       toast.error('Please fill in all mandatory fields.');
       return;
@@ -289,8 +299,8 @@ const ProjectDetails = () => {
     setTaskDetailModalOpen(true);
 
     try {
-      await dispatch(getTaskDetails({ projectId: id, taskId: t?._id })).unwrap();
-      dispatch(getTaskComments({ projectId: id, taskId: t?._id }));
+      await dispatch(getTaskDetails({ id, taskId: t?._id })).unwrap();
+      dispatch(getTaskComments({ id, taskId: t?._id }));
     } catch (error) {
       setTaskDetailModalOpen(false);
       toast.error(normalizeError(error).error);
@@ -298,6 +308,7 @@ const ProjectDetails = () => {
   };
 
   const handleUpdateTaskDetails = async () => {
+    if (!hasPermit('task:update')) return;
     if (!editingTaskForm.title.trim() || !editingTaskForm.description.trim()) {
       toast.error('Title and Description parameters cannot be empty.');
       return;
@@ -308,7 +319,7 @@ const ProjectDetails = () => {
     }
 
     try {
-      await dispatch(updateTask({ projectId: id, taskId: reduxTask?._id, data: editingTaskForm })).unwrap();
+      await dispatch(updateTask({ id, taskId: reduxTask?._id, data: editingTaskForm })).unwrap();
       toast.success('Successfully Updated Task');
       setIsEditingTask(false);
       setTaskDetailModalOpen(false);
@@ -318,11 +329,12 @@ const ProjectDetails = () => {
   };
 
   const handleDeleteTaskDetails = async () => {
+    if (!hasPermit('task:delete')) return;
     const confirmDelete = window.confirm('Are you sure you want to permanently remove this task?');
     if (!confirmDelete) return;
 
     try {
-      await dispatch(deleteTask({ projectId: id, taskId: reduxTask?._id })).unwrap();
+      await dispatch(deleteTask({ id, taskId: reduxTask?._id })).unwrap();
       toast.success('Task Deleted Successfully');
       setTaskDetailModalOpen(false);
     } catch (error) {
@@ -337,9 +349,10 @@ const ProjectDetails = () => {
     setNewCommentText: (val: string) => void
   ) => {
     e.preventDefault();
+    if (!hasPermit('task:comment')) return;
     if (!newCommentText.trim()) return;
     try {
-      await dispatch(postComment({ projectId: id, taskId: reduxTask?._id, commentBody: newCommentText })).unwrap();
+      await dispatch(postComment({ id, taskId: reduxTask?._id, commentBody: newCommentText })).unwrap();
       toast.success('Comment Posted Successfully');
       setNewCommentText('');
     } catch (error) {
@@ -348,9 +361,10 @@ const ProjectDetails = () => {
   };
 
   const handleUpdateComment = async (commentId: string, editingCommentText: string) => {
+    if (!hasPermit('task:comment')) return;
     if (!editingCommentText?.trim()) return;
     try {
-      await dispatch(updateComment({ projectId: id, commentId, commentBody: editingCommentText })).unwrap();
+      await dispatch(updateComment({ id, commentId, commentBody: editingCommentText })).unwrap();
       toast.success('Comment Updated Successfully');
     } catch (error) {
       let er = normalizeError(error);
@@ -359,9 +373,10 @@ const ProjectDetails = () => {
   };
 
   const handleDeleteComment = async (commentId: string) => {
+    if (!hasPermit('task:comment')) return;
     if (!commentId?.trim()) return;
     try {
-      await dispatch(deleteComment({ projectId: id, commentId })).unwrap();
+      await dispatch(deleteComment({ id, commentId })).unwrap();
       toast.success('Comment Deleted Successfully');
     } catch (error) {
       let er = normalizeError(error);
@@ -372,25 +387,30 @@ const ProjectDetails = () => {
   return (
     <div className="flex-1 min-h-screen bg-zinc-950 text-zinc-100 p-6 md:p-10 lg:p-12 overflow-y-auto animate-in fade-in duration-200">
       <div className="w-full space-y-8">
-        <RenderInviteModal
-          isOpen={addInviteModalOpen}
-          onClose={() => setAddInviteModalOpen(false)}
-          inviteForm={inviteForm}
-          setInviteForm={setInviteForm}
-          onSubmit={handleSendInvite}
-          loading={invitationLoading}
-        />
+        {(hasPermit('member:manage') || hasPermit('member:invite')) && (
+          <RenderInviteModal
+            isOpen={addInviteModalOpen}
+            onClose={() => setAddInviteModalOpen(false)}
+            inviteForm={inviteForm}
+            setInviteForm={setInviteForm}
+            onSubmit={handleSendInvite}
+            loading={invitationLoading}
+          />
+        )}
 
-        <RenderTaskModal
-          isOpen={addTaskModalOpen}
-          onClose={() => setAddTaskModalOpen(false)}
-          form={taskForm}
-          setForm={setTaskForm}
-          members={members || []}
-          onToggleAssignee={handleToggleAssignee}
-          onSubmit={handleCreateTask}
-          loading={taskLoading}
-        />
+        {hasPermit('task:create') && (
+          <RenderTaskModal
+            isOpen={addTaskModalOpen}
+            onClose={() => setAddTaskModalOpen(false)}
+            form={taskForm}
+            setForm={setTaskForm}
+            members={members || []}
+            onToggleAssignee={handleToggleAssignee}
+            onSubmit={handleCreateTask}
+            loading={taskLoading}
+            hasPermit={hasPermit}
+          />
+        )}
 
         <RenderTaskDetailModal
           currentUser={user}
@@ -399,6 +419,7 @@ const ProjectDetails = () => {
             setTaskDetailModalOpen(false);
             setIsEditingTask(false);
           }}
+          hasPermit={hasPermit}
           activeTask={reduxTask}
           isEditingTask={isEditingTask}
           setIsEditingTask={setIsEditingTask}
@@ -414,6 +435,9 @@ const ProjectDetails = () => {
           onDeleteComment={handleDeleteComment}
           taskLoading={taskLoading}
           commentLoading={commentLoading}
+          canEdit={hasPermit('task:update')}
+          canDelete={hasPermit('task:delete')}
+          canComment={hasPermit('task:comment')}
         />
 
         <div className="space-y-3 pb-6 border-b border-zinc-900">
@@ -435,7 +459,7 @@ const ProjectDetails = () => {
           <div className="p-6 md:p-8">
             {activeTab === 'overview' && (
               <div className="space-y-8">
-                {/* Enlarged Prominent Metric Header Cards */}
+                {/* Metric Header Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                   <div className="bg-zinc-950/60 border border-zinc-900 rounded-2xl p-5 space-y-3 shadow-md relative overflow-hidden group hover:border-zinc-800 transition-all">
                     <div className="flex items-center justify-between text-zinc-400">
@@ -457,7 +481,6 @@ const ProjectDetails = () => {
                       <p className="text-3xl font-black text-zinc-100">{completionRate}%</p>
                       <span className="text-xs text-emerald-400 font-medium">{completedTasks} completed</span>
                     </div>
-                    {/* Progress Bar Visual */}
                     <div className="w-full bg-zinc-900 h-1.5 rounded-full overflow-hidden mt-2">
                       <div className="bg-emerald-500 h-full rounded-full transition-all duration-500" style={{ width: `${completionRate}%` }} />
                     </div>
@@ -488,16 +511,8 @@ const ProjectDetails = () => {
                   </div>
                 </div>
 
-                {/* Main Content Layout & Enlarged Status Breakdown Block */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                  {/* Left Column: Project Meta Details */}
                   <div className="lg:col-span-2 space-y-6">
-                    {/* <div className="bg-zinc-950/40 border border-zinc-900 rounded-2xl p-6 space-y-4">
-                      <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Project Description</h3>
-                      <p className="text-sm text-zinc-300 leading-relaxed max-w-full">{project?.description || 'No description provided.'}</p>
-                    </div> */}
-
-                    {/* Task Distribution Status Map */}
                     <div className="bg-zinc-950/40 border border-zinc-900 rounded-2xl p-6 space-y-5">
                       <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-2">
                         <ListTodo className="h-4 w-4 text-indigo-400" /> Task Status Distribution
@@ -537,7 +552,6 @@ const ProjectDetails = () => {
                     </div>
                   </div>
 
-                  {/* Right Column: Workspace Details */}
                   <div className="space-y-5 bg-zinc-950/40 p-6 border border-zinc-900 rounded-2xl lg:col-span-1 w-full h-fit">
                     <h4 className="text-xs font-bold text-zinc-300 uppercase tracking-wider">Workspace Metadata</h4>
                     <div className="space-y-4 text-xs text-zinc-400">
@@ -599,35 +613,36 @@ const ProjectDetails = () => {
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <p className="text-sm font-bold text-zinc-300 uppercase tracking-wider">Invitations Sent</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-                    {projectInvitations?.map((item: any, index: number) => (
-                      <div key={index} className="flex flex-row rounded-xl border border-zinc-900 bg-zinc-950/50 p-4 gap-4 items-center shadow-lg transition-all duration-200 hover:border-zinc-800 w-full">
-                        <UserIcon size={40} className="bg-zinc-900 text-zinc-400 p-2.5 rounded-xl border border-zinc-800 shrink-0" />
-                        <div className="text-zinc-200 text-xs space-y-0.5 min-w-0 flex-1">
-                          <p className="font-semibold truncate text-zinc-100" title={item?.invitedEmail}>{item?.invitedEmail}</p>
-                          <p className="text-zinc-500 capitalize">{item?.role || 'Guest'}</p>
+                {(hasPermit('member:manage') || hasPermit('member:invite')) && (
+                  <div className="space-y-4">
+                    <p className="text-sm font-bold text-zinc-300 uppercase tracking-wider">Invitations Sent</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                      {projectInvitations?.map((item: any, index: number) => (
+                        <div key={index} className="flex flex-row rounded-xl border border-zinc-900 bg-zinc-950/50 p-4 gap-4 items-center shadow-lg transition-all duration-200 hover:border-zinc-800 w-full">
+                          <UserIcon size={40} className="bg-zinc-900 text-zinc-400 p-2.5 rounded-xl border border-zinc-800 shrink-0" />
+                          <div className="text-zinc-200 text-xs space-y-0.5 min-w-0 flex-1">
+                            <p className="font-semibold truncate text-zinc-100" title={item?.invitedEmail}>{item?.invitedEmail}</p>
+                            <p className="text-zinc-500 capitalize">{item?.role || 'Guest'}</p>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
-                <div className="pt-2">
-                  <Button onClick={() => setAddInviteModalOpen(true)}>Add Member</Button>
-                </div>
+                {/* Guard Member Invitation UI Trigger */}
+                {(hasPermit('member:manage') || hasPermit('member:invite')) && (
+                  <div className="pt-2">
+                    <Button onClick={() => setAddInviteModalOpen(true)}>Add Member</Button>
+                  </div>
+                )}
               </div>
             )}
 
             {activeTab === 'tasks' && (
               <div className="w-full space-y-6">
-                {/* Modern Filter Header Bar */}
                 <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 p-4 rounded-2xl bg-zinc-950/60 border border-zinc-900/80 shadow-inner">
-
-                  {/* Left Controls: Status Tabs, Search Bar, and Priority Dropdown */}
                   <div className="flex flex-wrap items-center gap-3 flex-1">
-                    {/* Status Tabs */}
                     <div className="flex items-center p-1 gap-1 rounded-xl bg-zinc-900/80 border border-zinc-800/60 overflow-x-auto shrink-0">
                       {[
                         { label: 'All', value: null },
@@ -640,8 +655,8 @@ const ProjectDetails = () => {
                           type="button"
                           onClick={() => setTaskFilters((prev) => ({ ...prev, status: tab.value }))}
                           className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all whitespace-nowrap ${taskFilters?.status === tab.value
-                              ? 'bg-indigo-600 text-white shadow-sm'
-                              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
+                            ? 'bg-indigo-600 text-white shadow-sm'
+                            : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
                             }`}
                         >
                           {tab.label}
@@ -649,7 +664,6 @@ const ProjectDetails = () => {
                       ))}
                     </div>
 
-                    {/* Search Form with Search Icon */}
                     <form onSubmit={handleSearchSubmit} className="flex items-center gap-2 flex-1 min-w-[220px]">
                       <div className="relative flex-1">
                         <CustomInput
@@ -665,7 +679,6 @@ const ProjectDetails = () => {
                       </Button>
                     </form>
 
-                    {/* Priority Dropdown */}
                     <Dropdown
                       items={[
                         { label: 'All Priorities', onClick() { setTaskFilters((prev) => ({ ...prev, priority: null })); } },
@@ -682,16 +695,17 @@ const ProjectDetails = () => {
                     />
                   </div>
 
-                  {/* Right Actions: Create Task */}
-                  <div className="flex items-center justify-end shrink-0">
-                    <Button onClick={() => setAddTaskModalOpen(true)} className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs rounded-xl px-4 py-2 shadow-sm">
-                      <Plus className="h-4 w-4" />
-                      <span>Create Task</span>
-                    </Button>
-                  </div>
+                  {/* Guard Task Creation Button */}
+                  {hasPermit('task:create') && (
+                    <div className="flex items-center justify-end shrink-0">
+                      <Button onClick={() => setAddTaskModalOpen(true)} className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs rounded-xl px-4 py-2 shadow-sm">
+                        <Plus className="h-4 w-4" />
+                        <span>Create Task</span>
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
-                {/* Task Stream List */}
                 <div className="space-y-3 w-full">
                   {taskLoading && (!tasks || tasks.length === 0) ? (
                     <div className="flex items-center justify-center p-12 gap-2 text-xs text-zinc-400">
@@ -714,7 +728,6 @@ const ProjectDetails = () => {
                         </div>
                       ))}
 
-                      {/* Task Load More UI Controls */}
                       {taskPagination?.hasNextPage && (
                         <div className="pt-6 pb-2 text-center">
                           <Button
@@ -753,28 +766,23 @@ const ProjectDetails = () => {
                   </div>
                 </div>
 
-                {/* Initial Loading Skeleton */}
                 {activityLoading && (!logs || logs.length === 0) ? (
                   <div className="flex items-center justify-center p-12 gap-2 text-xs text-zinc-400">
                     <Loader2 className="h-4 w-4 animate-spin text-indigo-400" />
                     <span>Fetching activity feed...</span>
                   </div>
                 ) : !logs || logs.length === 0 ? (
-                  /* Empty State */
                   <div className="border border-dashed border-zinc-900 rounded-xl p-10 text-center text-xs text-zinc-500">
                     No recent activity recorded for this workspace.
                   </div>
                 ) : (
-                  /* Vertical Activity Timeline Feed */
                   <div className="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-3 before:bottom-3 before:w-0.5 before:bg-zinc-900">
                     {logs.map((log: any) => (
                       <div key={log._id} className="relative flex items-start gap-4 text-xs">
-                        {/* Timeline Dot Indicator */}
                         <div className="absolute -left-6 top-1 h-5 w-5 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center">
                           <span className="h-1.5 w-1.5 rounded-full bg-indigo-400" />
                         </div>
 
-                        {/* Log Body */}
                         <div className="flex-1 bg-zinc-950/60 border border-zinc-900 rounded-xl p-4 space-y-1">
                           <div className="flex items-center justify-between gap-2">
                             <span className="font-semibold text-zinc-200">
@@ -791,7 +799,6 @@ const ProjectDetails = () => {
                       </div>
                     ))}
 
-                    {/* Load More Pagination Flow */}
                     {activityPagination?.hasNextPage && (
                       <div className="pt-4 text-center">
                         <Button
@@ -832,23 +839,29 @@ const ProjectDetails = () => {
 
                     <Textarea label="Project Description" value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} />
 
-                    <Button size="sm" type="submit" disabled={projectLoading}>
-                      {projectLoading ? 'Saving...' : 'Save Project Details'}
-                    </Button>
+                    {/* Guard Project Details Form Submission */}
+                    {hasPermit('project:update') && (
+                      <Button size="sm" type="submit" disabled={projectLoading}>
+                        {projectLoading ? 'Saving...' : 'Save Project Details'}
+                      </Button>
+                    )}
                   </div>
                 </form>
 
-                <div className="space-y-2 mt-10 pt-6 border-t border-zinc-900 w-full max-w-2xl">
-                  <p className="text-sm text-red-400 font-bold uppercase tracking-wider">Danger Zone</p>
-                  <p className="text-xs text-zinc-500">Permanently delete this project workspace and all data associated with it.</p>
-                  <Button
-                    onClick={handleDeleteProject}
-                    disabled={projectLoading}
-                    className="bg-red-950/40 hover:bg-red-900 text-red-200 border-red-900/50 hover:border-red-800 focus:ring-0 mt-2"
-                  >
-                    {projectLoading ? 'Deleting...' : 'Delete Project'}
-                  </Button>
-                </div>
+                {/* Guard Project Deletion Area */}
+                {hasPermit('project:delete') && (
+                  <div className="space-y-2 mt-10 pt-6 border-t border-zinc-900 w-full max-w-2xl">
+                    <p className="text-sm text-red-400 font-bold uppercase tracking-wider">Danger Zone</p>
+                    <p className="text-xs text-zinc-500">Permanently delete this project workspace and all data associated with it.</p>
+                    <Button
+                      onClick={handleDeleteProject}
+                      disabled={projectLoading}
+                      className="bg-red-950/40 hover:bg-red-900 text-red-200 border-red-900/50 hover:border-red-800 focus:ring-0 mt-2"
+                    >
+                      {projectLoading ? 'Deleting...' : 'Delete Project'}
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </div>

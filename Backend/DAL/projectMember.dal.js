@@ -9,6 +9,12 @@ class projectMemberDal {
         return await ProjectMember.findOne({ userId, projectId }).lean();
     }
 
+    async getUserMemberShips (userId) {
+        if (!userId) return null;
+
+        return await ProjectMember.find({userId}).lean();
+    }
+
     async getProjectMembers (projectId) {
         if (!projectId) return null;
 

@@ -4,9 +4,9 @@ import { normalizeError } from "../../../utils/getErrorMessage";
 
 export const createProject = createAsyncThunk(
     'project/create',
-    async ({data}:any, {rejectWithValue}) => {
+    async ({data:projectData}:any, {rejectWithValue}) => {
         try {
-            const res = await axiosInstance.post("/project/create", {...data});
+            const res = await axiosInstance.post("/project/create", {projectData});
 
             return res.data;
         } catch (error) {
@@ -18,9 +18,9 @@ export const createProject = createAsyncThunk(
 
 export const updateProject = createAsyncThunk(
     'project/update',
-    async ({data}:any, {rejectWithValue}) => {
+    async ({id: projectId, data:updatedProjectData}:any, {rejectWithValue}) => {
         try {
-            const res = await axiosInstance.put(`/project/${data?.id}`, {...data});
+            const res = await axiosInstance.put(`/project/${projectId}`, {updatedProjectData});
 
             return res.data;
         } catch (error) {
@@ -31,9 +31,9 @@ export const updateProject = createAsyncThunk(
 
 export const deleteProject = createAsyncThunk(
     'project/delete',
-    async ({id} : any,{rejectWithValue}) => {
+    async ({id:projectId} : any,{rejectWithValue}) => {
         try {
-            const res = await axiosInstance.delete(`/project/${id}`);
+            const res = await axiosInstance.delete(`/project/${projectId}`);
 
             return res.data;
         } catch (error) {
@@ -45,10 +45,9 @@ export const deleteProject = createAsyncThunk(
 
 export const getUserProjects = createAsyncThunk(
     'project/getAll',
-    async ({userId}:any, {rejectWithValue}) => {
+    async (_, {rejectWithValue}) => {
         try {
-            const res = await axiosInstance.get(`/user/${userId}/projects`);
-            console.log(res.data);
+            const res = await axiosInstance.get(`/user/projects`);
 
             return res.data;
         } catch (error) {
@@ -59,9 +58,9 @@ export const getUserProjects = createAsyncThunk(
 
 export const getProjectById = createAsyncThunk(
     'project/getOne',
-    async ({id}:any, {rejectWithValue}) => {
+    async ({id:projectId}:any, {rejectWithValue}) => {
         try {
-            const res = await axiosInstance.get(`/project/${id}`);
+            const res = await axiosInstance.get(`/project/${projectId}`);
 
             return res.data;
         } catch (error) {
@@ -72,9 +71,9 @@ export const getProjectById = createAsyncThunk(
 
 export const getProjectStats = createAsyncThunk(
     'project/stats/get', 
-    async ({id}, {rejectWithValue}) => {
+    async ({id:projectId}, {rejectWithValue}) => {
         try {
-            const res = await axiosInstance.get(`/project/${id}/project-stats`);
+            const res = await axiosInstance.get(`/project/${projectId}/project-stats`);
 
             return res.data;
         } catch (error) {

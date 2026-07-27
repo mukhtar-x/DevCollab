@@ -6,11 +6,11 @@ const commentController = require("../controllers/comment.controller.js");
 const router = require("express").Router();
 
 
-router.route("/:id/tasks/:taskId/comments")
+router.route("/:projectId/tasks/:taskId/comments")
 .post(AuthorizationMiddleware, requirePermission(Permission.COMMENT), commentController.createComment)
 .get(AuthorizationMiddleware, requirePermission(Permission.COMMENT), commentController.getTaskComments);
 
-router.route("/:id/comments/:commentId")
+router.route("/:projectId/comments/:commentId")
 .patch(AuthorizationMiddleware, requirePermission(Permission.COMMENT), commentController.updateComment)
 .delete(AuthorizationMiddleware, requirePermission(Permission.COMMENT), commentController.deleteComment);
 

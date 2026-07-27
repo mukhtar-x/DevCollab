@@ -84,16 +84,15 @@ class UserService {
         return updatedProfile;
     };
 
-    async getUserProjects(loggedInUser, requestedUser) {
-        const projects = await projectDal.getProjectsByUserId(requestedUser);
+    async getUserProjects(loggedInUserId) {
+        if (!loggedInUserId) throw new CustomError(400, "Forbidden: You're not logged In");
+
+        const projects = await projectDal.getProjectsByUserId(loggedInUserId);
 
         if (!projects) return [];
 
-        if (String(loggedInUser) === String(requestedUser)) {
-            return projects;
-        }
-
-        return projects.filter(project => project.visibility === "public");
+        return projects;
+    
     }
 
 };

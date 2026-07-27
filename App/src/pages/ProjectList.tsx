@@ -9,7 +9,7 @@ import CustomModal from '../components/CustomModal';
 import Input from '../components/Input';
 import Textarea from '../components/Textarea';
 import EmptyState from '../components/EmptyState';
-import { Plus, Grid, List, FolderGit2, Users } from 'lucide-react';
+import { Plus, Grid, List, FolderGit2, Users, UserCheck } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useDispatch, useSelector } from 'react-redux';
 import { createProject, getUserProjects } from '../redux/slices/projectSlide/project.actions';
@@ -24,72 +24,87 @@ interface Project {
   description: string;
   status: string;
   membersCount: number;
+  currentUserRole?: string;
 }
 
-// ==========================================
-// Sub-Components
-// ==========================================
+const ProjectGridCard = React.memo(({ proj, onClick }: { proj: Project; onClick: () => void }) => {
+  const isCollaborator = proj.currentUserRole && proj.currentUserRole?.toUpperCase() !== 'OWNER';
 
-const ProjectGridCard = React.memo(({ proj, onClick }: { proj: Project; onClick: () => void }) => (
-  <Card onClick={onClick} className="hoverable flex flex-col justify-between" padding="md">
-    <div className="space-y-3.5">
-      <div className="flex items-start justify-between">
-        <Badge variant="success" size="sm">
-          {proj.status}
-        </Badge>
-      </div>
-
-      <div className="space-y-1">
-        <h3 className="font-extrabold text-sm text-zinc-100 hover:text-indigo-400 transition-colors flex items-center gap-1.5 cursor-pointer">
-          <FolderGit2 className="h-4 w-4 text-zinc-500" />
-          {proj.title}
-        </h3>
-        <p className="text-xs text-zinc-400 leading-relaxed line-clamp-3">
-          {proj.description}
-        </p>
-      </div>
-    </div>
-
-    <div className="mt-6 pt-4 border-t border-zinc-900 flex items-center justify-between text-zinc-500 text-[10px] font-medium">
-      <span className="flex items-center gap-1">
-        <Users className="h-3.5 w-3.5" />
-        {proj.membersCount} {proj.membersCount === 1 ? 'member' : 'members'}
-      </span>
-    </div>
-  </Card>
-));
-ProjectGridCard.displayName = 'ProjectGridCard';
-
-const ProjectListRow = React.memo(({ proj, onClick }: { proj: Project; onClick: () => void }) => (
-  <Card onClick={onClick} className="hoverable flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4" padding="sm">
-    <div className="flex items-center gap-4 flex-1">
-      <div className="p-3 bg-zinc-900 border border-zinc-850 rounded-xl hidden sm:block text-zinc-400">
-        <FolderGit2 className="h-5 w-5" />
-      </div>
-      <div className="space-y-1">
-        <div className="flex items-center gap-2">
-          <h3 className="font-bold text-sm text-zinc-100">{proj.title}</h3>
+  return (
+    <Card onClick={onClick} className="hoverable flex flex-col justify-between" padding="md">
+      <div className="space-y-3.5">
+        <div className="flex items-start justify-between gap-2">
           <Badge variant="success" size="sm">
             {proj.status}
           </Badge>
+
+          {isCollaborator && (
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+              <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-pulse" />
+              Collaborator
+            </span>
+          )}
         </div>
-        <p className="text-xs text-zinc-400 max-w-2xl truncate">{proj.description}</p>
+
+        <div className="space-y-1">
+          <h3 className="font-extrabold text-sm text-zinc-100 hover:text-indigo-400 transition-colors flex items-center gap-1.5 cursor-pointer">
+            <FolderGit2 className="h-4 w-4 text-zinc-500" />
+            {proj.title}
+          </h3>
+          <p className="text-xs text-zinc-400 leading-relaxed line-clamp-3">
+            {proj.description}
+          </p>
+        </div>
       </div>
-    </div>
 
-    <div className="flex items-center justify-between sm:justify-end gap-6 w-full sm:w-auto text-[10px] text-zinc-500 font-medium border-t border-zinc-900 sm:border-0 pt-3 sm:pt-0">
-      <span className="flex items-center gap-1">
-        <Users className="h-3.5 w-3.5" />
-        {proj.membersCount} {proj.membersCount === 1 ? 'member' : 'members'}
-      </span>
-    </div>
-  </Card>
-));
+      <div className="mt-6 pt-4 border-t border-zinc-900 flex items-center justify-between text-zinc-500 text-[10px] font-medium">
+        <span className="flex items-center gap-1">
+          <Users className="h-3.5 w-3.5" />
+          {proj.membersCount} {proj.membersCount === 1 ? 'member' : 'members'}
+        </span>
+      </div>
+    </Card>
+  );
+});
+ProjectGridCard.displayName = 'ProjectGridCard';
+
+const ProjectListRow = React.memo(({ proj, onClick }: { proj: Project; onClick: () => void }) => {
+  const isCollaborator = proj.currentUserRole && proj.currentUserRole?.toUpperCase() !== 'OWNER';
+
+  return (
+    <Card onClick={onClick} className="hoverable flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4" padding="sm">
+      <div className="flex items-center gap-4 flex-1">
+        <div className="p-3 bg-zinc-900 border border-zinc-850 rounded-xl hidden sm:block text-zinc-400">
+          <FolderGit2 className="h-5 w-5" />
+        </div>
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <h3 className="font-bold text-sm text-zinc-100">{proj.title}</h3>
+            <Badge variant="success" size="sm">
+              {proj.status}
+            </Badge>
+
+            {isCollaborator && (
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-pulse" />
+                Collaborator
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-zinc-400 max-w-2xl truncate">{proj.description}</p>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between sm:justify-end gap-6 w-full sm:w-auto text-[10px] text-zinc-500 font-medium border-t border-zinc-900 sm:border-0 pt-3 sm:pt-0">
+        <span className="flex items-center gap-1">
+          <Users className="h-3.5 w-3.5" />
+          {proj.membersCount} {proj.membersCount === 1 ? 'member' : 'members'}
+        </span>
+      </div>
+    </Card>
+  );
+});
 ProjectListRow.displayName = 'ProjectListRow';
-
-// ==========================================
-// Main Component
-// ==========================================
 
 const ProjectList = () => {
   const dispatch = useDispatch<any>();
@@ -107,7 +122,6 @@ const ProjectList = () => {
   const { user } = useSelector((state: any) => state.user);
   const { projects: userProjects = [] } = useSelector((state: any) => state.project || {});
 
-  // Fetch initial project dataset
   useEffect(() => {
     if (!user?._id) return;
     const fetchProjects = async () => {
@@ -121,29 +135,24 @@ const ProjectList = () => {
     fetchProjects();
   }, [dispatch, user?._id]);
 
-  // Read filtered projects directly from store without double-state synching mechanics
- // Read and filter projects directly based on search AND the active tab
-const filteredProjects = useMemo(() => {
-  return userProjects.filter((p: any) => {
-    // 1. First, apply your text search filter
-    const matchesSearch = 
-      p.title?.toLowerCase().includes(search.toLowerCase()) ||
-      p.description?.toLowerCase().includes(search.toLowerCase());
+  const filteredProjects = useMemo(() => {
+    return userProjects.filter((p: any) => {
+      const matchesSearch = 
+        p.title?.toLowerCase().includes(search.toLowerCase()) ||
+        p.description?.toLowerCase().includes(search.toLowerCase());
 
-    if (!matchesSearch) return false;
+      if (!matchesSearch) return false;
 
-    // 2. Next, apply your Tab filter logic
-    if (projectType === 'my') {
-      return p.ownerId === user?._id; // Adjust 'ownerId' based on your backend schema
-    }
-    if (projectType === 'other') {
-      return p.ownerId !== user?._id;
-    }
+      if (projectType === 'my') {
+        return p.currentUserRole?.toUpperCase() == 'OWNER';
+      }
+      if (projectType === 'other') {
+        return p.currentUserRole && p.currentUserRole?.toUpperCase() != 'OWNER';
+      }
 
-    return true; // 'all' tab returns everything that matches search
-  });
-}, [userProjects, search, projectType, user?._id]);
-
+      return true;
+    });
+  }, [userProjects, search, projectType]);
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

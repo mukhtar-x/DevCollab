@@ -5,13 +5,14 @@ const CustomError = require("../utils/CustomError");
 const eventBus = require("../events/log.event");
 const activityLogDal = require("../DAL/activitylog.dal");
 const taskDal = require("../DAL/task.dal");
+const { ROLE_PERMISSIONS } = require("../constants/permission");
 
 class projectService {
     constructor() { };
 
 
     async createProject(user, data) {
-        if (!user._id || !user.email || !data) throw new CustomError(500, "Invalid Data");
+        if (!user._id || !user.email || !data || Object.keys(data).length === 0) throw new CustomError(500, "Invalid Data");
 
         const project = await projectDal.createProject(user._id, data);
 
@@ -35,7 +36,10 @@ class projectService {
 
 
     async deleteProject(userId, projectId) {
+        if (!projectId || !userId) throw new CustomError(404, "Project ID, UserId required");
+
         const project = await projectDal.getProjectByKey('_id', projectId);
+
         if (!project) throw new CustomError(404, "Project not Found");
 
         if (project?.ownerId != userId) throw new CustomError(404, "Forbidden");
@@ -48,6 +52,8 @@ class projectService {
     };
 
     async updateProject(userId, projectId, updatedData) {
+        if (!projectId || !userId || Object.entries(updatedData)?.length == 0) throw new CustomError(404, "Project ID, UserId, Updated Feilds required");
+
         const project = await projectDal.getProjectByKey('_id', projectId);
         if (!project) throw new CustomError(404, "Project not Found");
 
@@ -84,15 +90,26 @@ class projectService {
     }
 
     async getProjectById(userId, projectId) {
-        const project = await projectDal.getProjectByKey('_id', projectId);
+        if (!projectId || !userId) throw new CustomError(404, "Project ID, UserId required");
 
-        if (project?.visibility === 'private') {
-            const isMember = await projectMemberDal.getProjectMember(userId, projectId);
-            if (project?.ownerId != userId && !isMember) {
-                throw new CustomError(403, "Forbidden");
-            }
+        const project = await projectDal.getProjectByKey('_id', projectId);
+        if (!project) {
+            throw new CustomError(404, "Project not found");
         }
-        return project;
+
+        const membership = await projectMemberDal.getProjectMember(userId, projectId);
+
+        if (project.visibility === 'private' && !membership) {
+            throw new CustomError(403, "Access Denied: You do not have access to this project");
+        }
+        const currentUserRole = membership ? membership.role : 'Guest';
+        const userPermissions = ROLE_PERMISSIONS[currentUserRole] || [];
+
+        return {
+            ...project.toObject ? project.toObject() : project,
+            currentUserRole,
+            userPermissions
+        };
     };
 
     async getProjectMembers(projectId) {

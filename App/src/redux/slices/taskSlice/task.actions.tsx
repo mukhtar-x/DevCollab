@@ -4,9 +4,9 @@ import { normalizeError } from "../../../utils/getErrorMessage";
 
 export const createTask = createAsyncThunk(
     'task/create',
-    async ({ id, taskData }, { rejectWithValue }) => {
+    async ({id: projectId, taskData }, { rejectWithValue }) => {
         try {
-            const res = await axiosInstance.post(`/project/${id}/tasks`, { ...taskData });
+            const res = await axiosInstance.post(`/project/${projectId}/tasks`, { taskData });
 
             return res.data;
         } catch (error) {
@@ -18,7 +18,7 @@ export const createTask = createAsyncThunk(
 
 export const getProjectTasks = createAsyncThunk(
     'task/getall',
-    async ({ id, filter = {}, isLoadMore }, { rejectWithValue, getState }) => {
+    async ({id: projectId, filter = {}, isLoadMore }, { rejectWithValue, getState }) => {
 
         const { nextCursor, limit=5 } = getState().projectTasks?.pagination;
 
@@ -40,7 +40,7 @@ export const getProjectTasks = createAsyncThunk(
         const queryString = params.toString();
 
         try {
-            const res = await axiosInstance.get(`/project/${id}/tasks?${queryString}`);
+            const res = await axiosInstance.get(`/project/${projectId}/tasks?${queryString}`);
 
             return res.data;
         } catch (error) {
@@ -51,9 +51,9 @@ export const getProjectTasks = createAsyncThunk(
 
 export const getTaskDetails = createAsyncThunk(
     'task/get',
-    async ({ projectId: id, taskId }, { rejectWithValue }) => {
+    async ({ id: projectId, taskId }, { rejectWithValue }) => {
         try {
-            const res = await axiosInstance.get(`/project/${id}/task/${taskId}`);
+            const res = await axiosInstance.get(`/project/${projectId}/task/${taskId}`);
 
             return res.data;
         } catch (error) {
@@ -64,9 +64,9 @@ export const getTaskDetails = createAsyncThunk(
 
 export const updateTask = createAsyncThunk(
     'task/update',
-    async ({ projectId: id, taskId, data }, { rejectWithValue }) => {
+    async ({id: projectId, taskId, data:updatedTaskData }, { rejectWithValue }) => {
         try {
-            const res = await axiosInstance.put(`/project/${id}/task/${taskId}`, { ...data });
+            const res = await axiosInstance.put(`/project/${projectId}/task/${taskId}`, { updatedTaskData });
 
             return res.data;
         } catch (error) {
@@ -77,9 +77,9 @@ export const updateTask = createAsyncThunk(
 
 export const deleteTask = createAsyncThunk(
     'task/delete',
-    async ({ projectId: id, taskId }, { rejectWithValue }) => {
+    async ({id: projectId, taskId }, { rejectWithValue }) => {
         try {
-            const res = await axiosInstance.delete(`/project/${id}/task/${taskId}`);
+            const res = await axiosInstance.delete(`/project/${projectId}/task/${taskId}`);
 
             return res.data;
         } catch (error) {
@@ -91,9 +91,9 @@ export const deleteTask = createAsyncThunk(
 
 export const updateTaskStatus = createAsyncThunk(
     'task/update/status',
-    async ({ projectId: id, taskId, status }, { rejectWithValue }) => {
+    async ({id: projectId, taskId, status }, { rejectWithValue }) => {
         try {
-            const res = await axiosInstance.patch(`/project/${id}/task/${taskId}/status`, { status });
+            const res = await axiosInstance.patch(`/project/${projectId}/task/${taskId}/status`, { status });
 
             return res.data;
         } catch (error) {

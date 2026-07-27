@@ -4,7 +4,7 @@ const Permission = Object.freeze({
   MANAGE_MEMBERS: 'member:manage',
   CREATE_TASK: 'task:create',
   UPDATE_TASK: 'task:update',
-  DELETE_TASK: 'task:update',
+  DELETE_TASK: 'task:delete',
   READ_TASK: 'task:read',
   COMMENT: 'task:comment',
   MEMEBR: 'project:member'

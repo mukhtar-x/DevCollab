@@ -5,7 +5,8 @@ const authorizationMiddleware = require("../middlewares/authorization.middleware
 
 Router.route("/profile").get(authorizationMiddleware, userController.getUserProfile);
 Router.route("/profile").put(authorizationMiddleware, uploadSingleAvatar, userController.updateUserProfile);
-Router.route("/:userId/projects").get(authorizationMiddleware, userController.getUserProjects);
+// Router.route("/:userId/projects").get(authorizationMiddleware, userController.getProjectsByUserId);
+Router.route("/projects").get(authorizationMiddleware, userController.getUserProjects);
 
 
 module.exports = Router;

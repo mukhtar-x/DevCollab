@@ -1,6 +1,8 @@
 const authService = require("../services/auth.service.js");
 const CustomError = require("../utils/CustomError.js");
 const reusable = require("../utils/reusable.js");
+const sessionService = require("../services/session.service.js");
+
 
 const setTokenCookie = (res, token) => {
     res.cookie("refreshToken", token, {
@@ -20,7 +22,7 @@ const loginController = async (req, res, next) => {
         setTokenCookie(res, response.refreshToken);
 
         return res.status(200).json({
-            message: response.message,
+            message: "Logged In Successfully",
             success: true,
             accessToken: response.accessToken
         });
@@ -36,7 +38,7 @@ const registerController = async (req, res, next) => {
 
         return res.status(200).json({
             success: true,
-            message: response.message
+            message: `Verify Account using OTP send to ${email}`
         });
     } catch (error) {
         next(error);
@@ -52,7 +54,7 @@ const registerVerifyController = async (req, res, next) => {
 
         return res.status(201).json({
             success: true,
-            message: response.message,
+            message: "Account Verification Successfull",
             accessToken: response.accessToken,
             user: response.user
         });
@@ -69,7 +71,6 @@ const logoutController = async (req, res, next) => {
         if (refreshToken) {
             const { decoded, success } = reusable.verifyToken(refreshToken, "refresh");
             if (success) {
-                const sessionService = require("../services/session.service.js");
                 await sessionService.revokeSession(decoded._id);
             }
         }
@@ -98,7 +99,7 @@ const refreshAccessTokenController = async (req, res, next) => {
         return res.status(200).json({
             success: true,
             accessToken: response.accessToken,
-            message: response.message
+            message: "Access Token Refreshed Successfully"
         });
     } catch (error) {
         next(error);

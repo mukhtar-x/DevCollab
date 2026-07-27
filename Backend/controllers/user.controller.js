@@ -5,8 +5,6 @@ const getUserProfile = async (req, res, next) => {
     try {
         const user = req.user;
 
-        if (!user) throw new CustomError(400, "Forbidden");
-
         const response = await userService.getUserProfile(user._id);
 
         res.status(200).json({
@@ -27,8 +25,6 @@ const updateUserProfile = async (req, res, next) => {
         const user = req.user;
         const file = req?.file;
 
-        if (!user) throw new CustomError(400, "Forbidden");
-
         const response = await userService.updateUserProfile(user._id, { name, bio, skills, avatar }, file);
 
         return res.status(201).json({
@@ -45,10 +41,10 @@ const updateUserProfile = async (req, res, next) => {
 
 const getUserProjects = async (req, res, next) => {
     try {
-        const loggedInUser = req.user?._id;
-        const requestedUser = req.params?.userId;
+        const loggedInUserId = req.user?._id;
+        // const requestedUser = req.params?.userId;
 
-        const response = await userService.getUserProjects(loggedInUser, requestedUser);
+        const response = await userService.getUserProjects(loggedInUserId);
 
         return res.status(200).json({
             success : true,

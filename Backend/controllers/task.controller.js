@@ -2,11 +2,11 @@ const taskService = require("../services/task.service.js");
 
 const createProjectTask = async (req, res, next) => {
     try {
-        const projectId = req.params?.id;
+        const projectId = req.params?.projectId;
         const userId = req.user?._id;
-        const { ...projectData } = req.body;
+        const { taskData } = req.body;
 
-        const response = await taskService.createTask(userId, projectId, projectData);
+        const response = await taskService.createTask(userId, projectId, taskData);
 
         return res.status(201).json({
             success: true,
@@ -22,7 +22,7 @@ const createProjectTask = async (req, res, next) => {
 const getProjectTasks = async (req, res, next) => {
     try {
         const queryParams = req.query;
-        const projectId = req.params?.id;
+        const projectId = req.params?.projectId;
 
         const response = await taskService.getTasks(projectId, queryParams);
 
@@ -42,7 +42,7 @@ const getProjectTasks = async (req, res, next) => {
 
 const getTask = async (req, res, next) => {
     try {
-        const projectId = req.params?.id;
+        const projectId = req.params?.projectId;
         const taskId = req.params?.taskId;
 
         const response = await taskService.getTask(projectId, taskId);
@@ -59,11 +59,11 @@ const getTask = async (req, res, next) => {
 
 const updateTask = async (req, res, next) => {
     try {
-        const projectId = req.params?.id;
+        const projectId = req.params?.projectId;
         const taskId = req.params?.taskId;
-        const { ...data } = req.body;
+        const { updatedTaskData } = req.body;
 
-        const response = await taskService.updateTask(projectId, taskId, data);
+        const response = await taskService.updateTask(projectId, taskId, updatedTaskData);
 
         return res.status(200).json({
             success: true,
@@ -78,7 +78,7 @@ const updateTask = async (req, res, next) => {
 
 const updateTaskStatus = async (req, res, next) => {
     try {
-        const projectId = req.params?.id;
+        const projectId = req.params?.projectId;
         const taskId = req.params?.taskId;
         const status = req.body?.status;
 
@@ -97,7 +97,7 @@ const updateTaskStatus = async (req, res, next) => {
 
 const deleteTask = async (req, res, next) => {
     try {
-        const projectId = req.params?.id;
+        const projectId = req.params?.projectId;
         const taskId = req.params?.taskId;
 
         const response = await taskService.deleteTask(projectId, taskId);

@@ -4,9 +4,9 @@ import { normalizeError } from "../../../utils/getErrorMessage";
 
 export const getProjectInvitations = createAsyncThunk(
     'project/getPendingInvitations',
-    async ({id}, {rejectWithValue}) => {
+    async ({id:projectId}, {rejectWithValue}) => {
         try {
-            const res = await axiosInstance.get(`/project/${id}/invitations`);
+            const res = await axiosInstance.get(`/project/${projectId}/invitations`);
 
             return res.data;
         } catch (error) {
@@ -17,9 +17,9 @@ export const getProjectInvitations = createAsyncThunk(
 
 export const inviteMemberByMail = createAsyncThunk(
     'project/inviteMember',
-    async ({email, role, id}, {rejectWithValue}) => {
+    async ({email, role, id:projectId}, {rejectWithValue}) => {
         try {
-            const res = await axiosInstance.post(`/project/${id}/invitations`, {email, role});
+            const res = await axiosInstance.post(`/project/${projectId}/invitations`, {email, role});
 
             return res.data;
         } catch (error) {

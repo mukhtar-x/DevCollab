@@ -17,7 +17,7 @@ import Textarea from '../Textarea';
 import Dropdown from '../Dropdown';
 
 interface TaskDetailModalProps {
-  currentUser,
+  currentUser: any;
   isOpen: boolean;
   onClose: () => void;
   activeTask: any;
@@ -33,6 +33,7 @@ interface TaskDetailModalProps {
   onCommentSubmit: (e: React.FormEvent, text: string, setText: (val: string) => void) => void;
   onUpdateComment?: (commentId: string, text: string) => void;
   onDeleteComment?: (commentId: string) => void;
+  hasPermit?: (permission: string) => boolean;
 }
 
 export const RenderTaskDetailModal: React.FC<TaskDetailModalProps> = ({
@@ -44,7 +45,7 @@ export const RenderTaskDetailModal: React.FC<TaskDetailModalProps> = ({
   setIsEditingTask,
   editingTaskForm,
   setEditingTaskForm,
-  members,
+  members = [],
   onToggleEditAssignee,
   onUpdate,
   onDelete,
@@ -52,12 +53,18 @@ export const RenderTaskDetailModal: React.FC<TaskDetailModalProps> = ({
   onCommentSubmit,
   onUpdateComment,
   onDeleteComment,
+  hasPermit,
 }) => {
   if (!isOpen || !activeTask) return null;
 
   const [newCommentText, setNewCommentText] = useState('');
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingCommentText, setEditingCommentText] = useState('');
+
+  // Permission evaluation helpers
+  const canEditTask = hasPermit ? hasPermit('task:edit') : true;
+  const canDeleteTask = hasPermit ? hasPermit('task:delete') : true;
+  const canComment = hasPermit ? hasPermit('task:comment') : true;
 
   const getPriorityColor = (priority: string) => {
     switch (priority?.toLowerCase()) {
@@ -106,7 +113,7 @@ export const RenderTaskDetailModal: React.FC<TaskDetailModalProps> = ({
           {/* LEFT COLUMN: Task Details & Editing */}
           <div className="lg:col-span-7 flex flex-col h-full overflow-hidden">
             <div className="p-6 md:p-8 space-y-6 overflow-y-auto flex-1 custom-scrollbar">
-              {isEditingTask ? (
+              {isEditingTask && canEditTask ? (
                 /* EDIT FORM VIEW */
                 <div className="space-y-5">
                   <CustomInput
@@ -248,22 +255,26 @@ export const RenderTaskDetailModal: React.FC<TaskDetailModalProps> = ({
                       {activeTask.title}
                     </h2>
                     <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        onClick={() => setIsEditingTask(true)}
-                        type="button"
-                        className="p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 transition-colors"
-                        title="Edit Task"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={onDelete}
-                        type="button"
-                        className="p-2.5 rounded-xl bg-red-950/20 border border-red-900/30 text-red-400 hover:text-red-300 hover:bg-red-900/30 hover:border-red-700 transition-colors"
-                        title="Delete Task"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      {canEditTask && (
+                        <button
+                          onClick={() => setIsEditingTask(true)}
+                          type="button"
+                          className="p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 transition-colors"
+                          title="Edit Task"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </button>
+                      )}
+                      {canDeleteTask && (
+                        <button
+                          onClick={onDelete}
+                          type="button"
+                          className="p-2.5 rounded-xl bg-red-950/20 border border-red-900/30 text-red-400 hover:text-red-300 hover:bg-red-900/30 hover:border-red-700 transition-colors"
+                          title="Delete Task"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -346,7 +357,7 @@ export const RenderTaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
             {/* Left Action Footer */}
             <div className="p-4 border-t border-zinc-900 bg-zinc-900/20 shrink-0 flex justify-end gap-3">
-              {isEditingTask ? (
+              {isEditingTask && canEditTask ? (
                 <>
                   <Button variant="ghost" onClick={() => setIsEditingTask(false)}>
                     <div className="flex items-center gap-1.5">
@@ -400,27 +411,28 @@ export const RenderTaskDetailModal: React.FC<TaskDetailModalProps> = ({
                               })
                             : ''}
                         </span>
-                        {editingCommentId !== comment._id && comment.authorId?._id == currentUser?._id && (
-                          <div className="flex items-center gap-1 pl-2 border-l border-zinc-800">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingCommentId(comment._id);
-                                setEditingCommentText(comment.body);
-                              }}
-                              className="text-zinc-500 hover:text-zinc-300 p-1"
-                            >
-                              <Edit2 size={12} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => onDeleteComment?.(comment._id)}
-                              className="text-zinc-500 hover:text-red-400 p-1"
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          </div>
-                        )}
+                        {editingCommentId !== comment._id &&
+                          comment.authorId?._id === currentUser?._id && (
+                            <div className="flex items-center gap-1 pl-2 border-l border-zinc-800">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingCommentId(comment._id);
+                                  setEditingCommentText(comment.body);
+                                }}
+                                className="text-zinc-500 hover:text-zinc-300 p-1"
+                              >
+                                <Edit2 size={12} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => onDeleteComment?.(comment._id)}
+                                className="text-zinc-500 hover:text-red-400 p-1"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          )}
                       </div>
                     </div>
 
@@ -470,28 +482,34 @@ export const RenderTaskDetailModal: React.FC<TaskDetailModalProps> = ({
             </div>
 
             {/* Comment Input Footer */}
-            <form
-              onSubmit={(e) => onCommentSubmit(e, newCommentText, setNewCommentText)}
-              className="p-4 border-t border-zinc-900 bg-zinc-900/40 shrink-0"
-            >
-              <div className="flex gap-2 items-end">
-                <textarea
-                  value={newCommentText}
-                  onChange={(e) => setNewCommentText(e.target.value)}
-                  placeholder="Add a comment or update..."
-                  rows={2}
-                  className="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-700 transition-colors resize-none"
-                />
-                <Button
-                  size="sm"
-                  type="submit"
-                  disabled={!newCommentText.trim()}
-                  className="h-[42px] px-4"
-                >
-                  <Send className="h-4 w-4" />
-                </Button>
+            {canComment ? (
+              <form
+                onSubmit={(e) => onCommentSubmit(e, newCommentText, setNewCommentText)}
+                className="p-4 border-t border-zinc-900 bg-zinc-900/40 shrink-0"
+              >
+                <div className="flex gap-2 items-end">
+                  <textarea
+                    value={newCommentText}
+                    onChange={(e) => setNewCommentText(e.target.value)}
+                    placeholder="Add a comment or update..."
+                    rows={2}
+                    className="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-700 transition-colors resize-none"
+                  />
+                  <Button
+                    size="sm"
+                    type="submit"
+                    disabled={!newCommentText.trim()}
+                    className="h-[42px] px-4"
+                  >
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </div>
+              </form>
+            ) : (
+              <div className="p-4 border-t border-zinc-900 bg-zinc-900/20 text-center text-xs text-zinc-500 italic shrink-0">
+                You do not have permission to post comments.
               </div>
-            </form>
+            )}
           </div>
         </div>
       </div>

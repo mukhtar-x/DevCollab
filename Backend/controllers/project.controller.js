@@ -4,16 +4,14 @@ const CustomError = require("../utils/CustomError.js");
 
 const createProject = async (req, res, next) => {
     try {
-        const { ...data } = req.body;
+        const { projectData } = req.body;
         const user = req.user;
 
-        if (!data || Object.keys(data).length === 0) throw new CustomError(400, "Invalid data values");
-
-        const response = await projectService.createProject(user, data);
+        const response = await projectService.createProject(user, projectData);
 
         return res.status(201).json({
             success: true,
-            message: "project created Successfully",
+            message: "Project created Successfully",
             project: response
         });
     } catch (error) {
@@ -23,7 +21,7 @@ const createProject = async (req, res, next) => {
 
 const deleteProject = async (req, res, next) => {
     try {
-        const projectId = req.params?.id;
+        const projectId = req.params?.projectId;
         const user = req.user;
 
         const response = await projectService.deleteProject(user._id, projectId);
@@ -40,25 +38,25 @@ const deleteProject = async (req, res, next) => {
 
 const updateProject = async (req, res, next) => {
     try {
-        const projectId = req.params.id;
+        const projectId = req.params.projectId;
         const user = req.user;
-        const { ...data } = req.body;
+        const { updatedProjectData } = req.body;
 
-        const response = await projectService.updateProject(user._id, projectId, data);
+        const response = await projectService.updateProject(user._id, projectId, updatedProjectData);
 
         return res.status(200).json({
             success: true,
             message: "Project Details Updated Successfully",
             project: response
         });
-    } catch (error) {
+    } catch (error) {data
         next(error);
     }
 };
 
 const getProjectById = async (req, res, next) => {
     try {
-        const projectId = req.params?.id;
+        const projectId = req.params?.projectId;
         const user = req.user;
 
         const response = await projectService.getProjectById(user._id, projectId);
@@ -76,13 +74,13 @@ const getProjectById = async (req, res, next) => {
 
 const inviteMember = async (req, res, next) => {
     try {
-        const projectId = req.params?.id;
+        const projectId = req.params?.projectId;
         const { email, role } = req.body;
-        const userEmail = req.projectMember?.email;
+        const currentUserEmail = req.projectMember?.email;
 
         if (!email || !projectId || !role) throw new CustomError(400, "Email or Project Required To Invite Member");
 
-        const response = await invitationService.inviteMemberByEmail(email, role, projectId, userEmail);
+        const response = await invitationService.inviteMemberByEmail(email, role, projectId, currentUserEmail);
 
         return res.status(200).json({
             success: true,
@@ -96,7 +94,7 @@ const inviteMember = async (req, res, next) => {
 
 const getProjectMembers = async (req, res, next) => {
     try {
-        const projectId = req.params?.id;
+        const projectId = req.params?.projectId;
 
         const response = await projectService.getProjectMembers(projectId);
 
@@ -112,7 +110,7 @@ const getProjectMembers = async (req, res, next) => {
 
 const getProjectInvitations = async (req, res, next) => {
     try {
-        const projectId = req.params?.id;
+        const projectId = req.params?.projectId;
 
         const response = await projectService.getProjectInvitations(projectId);
 
@@ -128,7 +126,7 @@ const getProjectInvitations = async (req, res, next) => {
 
 const removeProjectMember = async (req, res, next) => {
     try {
-        const projectId = req.params?.id;
+        const projectId = req.params?.projectId;
         const memberId = req.body?.memberId;
 
         const response = await projectService.removeProjectMember(projectId, memberId);
@@ -145,7 +143,7 @@ const removeProjectMember = async (req, res, next) => {
 
 const removeProjectInvitation = async (req, res, next) => {
     try {
-        const projectId = req.params?.id;
+        const projectId = req.params?.projectId;
         const email = req.body?.email;
 
         const response = await projectService.removeProjectInvitation(projectId, email);
@@ -162,7 +160,7 @@ const removeProjectInvitation = async (req, res, next) => {
 
 const getActivityLogs = async (req, res, next) => {
     try {
-        const projectId = req.params?.id;
+        const projectId = req.params?.projectId;
 
         const response = await projectService.getProjectLogs(projectId, req.query);
 
@@ -179,7 +177,7 @@ const getActivityLogs = async (req, res, next) => {
 
 const getProjectStats = async (req, res, next) => {
     try {
-        const projectId = req.params?.id;
+        const projectId = req.params?.projectId;
         
         const response = await projectService.getProjectStats(projectId);
 

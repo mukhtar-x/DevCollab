@@ -4,9 +4,9 @@ import { normalizeError } from "../../../utils/getErrorMessage";
 
 export const getTaskComments = createAsyncThunk(
     'comments/get',
-    async ({projectId:id, taskId}, {rejectWithValue}) => {
+    async ({id: projectId, taskId}, {rejectWithValue}) => {
         try {
-            const res = await axiosInstance.get(`/project/${id}/tasks/${taskId}/comments`);
+            const res = await axiosInstance.get(`/project/${projectId}/tasks/${taskId}/comments`);
 
             return res.data;
         } catch (error) {
@@ -17,9 +17,9 @@ export const getTaskComments = createAsyncThunk(
 
 export const postComment = createAsyncThunk(
     'comment/post',
-    async ({projectId:id, taskId, commentBody}, {rejectWithValue}) => {
+    async ({id: projectId, taskId, commentBody}, {rejectWithValue}) => {
         try {
-            const res  = await axiosInstance.post(`/project/${id}/tasks/${taskId}/comments`, {commentBody});
+            const res  = await axiosInstance.post(`/project/${projectId}/tasks/${taskId}/comments`, {commentBody});
 
             return res.data;
         } catch (error) {
@@ -30,10 +30,10 @@ export const postComment = createAsyncThunk(
 
 export const updateComment = createAsyncThunk(
     'comment/patch',
-    async ({projectId:id, commentId, commentBody}, {rejectWithValue}) => {
+    async ({id: projectId, commentId, commentBody}, {rejectWithValue}) => {
         console.log(commentBody)
         try {
-            const res = await axiosInstance.patch(`/project/${id}/comments/${commentId}`, {commentBody});
+            const res = await axiosInstance.patch(`/project/${projectId}/comments/${commentId}`, {commentBody});
 
             return res.data;
         } catch (error) {
@@ -44,9 +44,9 @@ export const updateComment = createAsyncThunk(
 
 export const deleteComment = createAsyncThunk(
     'comment/delete',
-    async ({projectId:id, commentId}, {rejectWithValue}) => {
+    async ({id: projectId, commentId}, {rejectWithValue}) => {
         try {
-            const res = await axiosInstance.delete(`/project/${id}/comments/${commentId}`);
+            const res = await axiosInstance.delete(`/project/${projectId}/comments/${commentId}`);
 
             return res.data;
         } catch (error) {

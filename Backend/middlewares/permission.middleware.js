@@ -6,7 +6,7 @@ const requirePermission = (requiredPermission) => {
     return async(req, res, next) => {
         try {
             const userId = req.user?._id;
-            const projectId = req.params.id;
+            const projectId = req.params.projectId;
 
             if (!projectId) throw new CustomError(400, "Project Id is required");
 
